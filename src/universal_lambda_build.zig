@@ -7,7 +7,7 @@ const std = @import("std");
 pub const BuildType = enum {
     awslambda,
     exe_run,
-    standalone_run,
+    standalone_server,
     cloudflare,
     flexilib,
 };
@@ -15,6 +15,7 @@ pub const BuildType = enum {
 pub fn configureBuild(b: *std.Build, exe: *std.Build.Step.Compile) !void {
     // Add steps
     try @import("lambdabuild.zig").configureBuild(b, exe);
+    try @import("standalone_server_build.zig").configureBuild(b, exe);
     // Add options module so we can let our universal_lambda know what
     // type of interface is necessary
 
