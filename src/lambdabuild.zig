@@ -14,23 +14,23 @@ fn addArgs(allocator: std.mem.Allocator, original: []const u8, args: [][]const u
     return rc;
 }
 
-/// lambdaBuildOptions will add three build options to the build (if compiling
+/// lambdaBuildSteps will add four build steps to the build (if compiling
 /// the code on a Linux host):
 ///
-/// * package:   Packages the function for deployment to Lambda
-///              (dependencies are the zip executable and a shell)
-/// * iam:       Gets an IAM role for the Lambda function, and creates it if it does not exist
-///              (dependencies are the AWS CLI, grep and a shell)
-/// * deploy:    Deploys the lambda function to a live AWS environment
-///              (dependencies are the AWS CLI, and a shell)
-/// * remoterun: Runs the lambda function in a live AWS environment
-///              (dependencies are the AWS CLI, and a shell)
+/// * awslambda_package:   Packages the function for deployment to Lambda
+///                        (dependencies are the zip executable and a shell)
+/// * awslambda_iam:       Gets an IAM role for the Lambda function, and creates it if it does not exist
+///                        (dependencies are the AWS CLI, grep and a shell)
+/// * awslambda_deploy:    Deploys the lambda function to a live AWS environment
+///                        (dependencies are the AWS CLI, and a shell)
+/// * awslambda_run:       Runs the lambda function in a live AWS environment
+///                        (dependencies are the AWS CLI, and a shell)
 ///
-/// remoterun depends on deploy
-/// deploy depends on iam and package
+/// awslambda_run depends on deploy
+/// awslambda_deploy depends on iam and package
 ///
 /// iam and package do not have any dependencies
-pub fn lambdaBuildOptions(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void {
+pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void {
     // The rest of this function is currently reliant on the use of Linux
     // system being used to build the lambda function
     //
@@ -41,7 +41,7 @@ pub fn lambdaBuildOptions(b: *std.build.Builder, exe: *std.Build.Step.Compile) !
     if (builtin.os.tag != .linux) return;
 
     // Package step
-    const package_step = b.step("package", "Package the function");
+    const package_step = b.step("awslambda_package", "Package the function");
     const function_zip = b.getInstallPath(.bin, "function.zip");
 
     // TODO: Avoid use of system-installed zip, maybe using something like
@@ -73,7 +73,7 @@ pub fn lambdaBuildOptions(b: *std.build.Builder, exe: *std.Build.Step.Compile) !
     package_step.dependOn(&zip_cmd.step);
 
     // Deployment
-    const deploy_step = b.step("deploy", "Deploy the function");
+    const deploy_step = b.step("awslambda_deploy", "Deploy the function");
     var deal_with_iam = true;
     if (b.args) |args| {
         for (args) |arg| {
@@ -86,7 +86,7 @@ pub fn lambdaBuildOptions(b: *std.build.Builder, exe: *std.Build.Step.Compile) !
 
     // TODO: Allow custom lambda role names
     var iam_role: []u8 = &.{};
-    const iam_step = b.step("iam", "Create/Get IAM role for function");
+    const iam_step = b.step("awslambda_iam", "Create/Get IAM role for function");
     deploy_step.dependOn(iam_step); // iam_step will either be a noop or all the stuff below
     if (deal_with_iam) {
         // if someone adds '-- --role arn...' to the command line, we don't
@@ -156,10 +156,6 @@ pub fn lambdaBuildOptions(b: *std.build.Builder, exe: *std.Build.Step.Compile) !
     deploy_step.dependOn(package_step);
     deploy_step.dependOn(&b.addSystemCommand(&.{ "/bin/sh", "-c", cmd }).step);
 
-    // TODO: Looks like IquanaTLS isn't playing nicely with payloads this small
-    // const payload = b.option([]const u8, "payload", "Lambda payload [{\"foo\":\"bar\"}]") orelse
-    //     \\ {"foo": "bar"}"
-    // ;
     const payload = b.option([]const u8, "payload", "Lambda payload [{\"foo\":\"bar\", \"baz\": \"qux\"}]") orelse
         \\ {"foo": "bar", "baz": "qux"}"
     ;
@@ -185,6 +181,6 @@ pub fn lambdaBuildOptions(b: *std.build.Builder, exe: *std.Build.Step.Compile) !
         run_cmd.addArgs(args);
     }
 
-    const run_step = b.step("remoterun", "Run the app in AWS lambda");
+    const run_step = b.step("awslambda_run", "Run the app in AWS lambda");
     run_step.dependOn(&run_cmd.step);
 }
