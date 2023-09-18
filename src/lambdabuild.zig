@@ -156,7 +156,7 @@ pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void
     }
     const cmd = try std.fmt.allocPrint(b.allocator, ifstatement, .{
         function_name_file,
-        b.getInstallPath(.bin, "function.zip"),
+        b.getInstallPath(.bin, exe.out_filename),
         function_name_file,
         function_name,
         not_found_fmt,
