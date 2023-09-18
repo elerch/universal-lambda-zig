@@ -90,7 +90,6 @@ fn createOptionsModule(b: *std.Build, exe: *std.Build.Step.Compile) !*std.Build.
 fn findBuildType(build_args: [][:0]u8) ?BuildType {
     var rc: ?BuildType = null;
     for (build_args[1..]) |arg| {
-        if (std.mem.startsWith(u8, arg, "-")) break; // we're done as soon as we get to options
         inline for (std.meta.fields(BuildType)) |field| {
             if (std.mem.startsWith(u8, arg, field.name)) {
                 if (rc != null)
