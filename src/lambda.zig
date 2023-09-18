@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const HandlerFn = @import("universal_lambda.zig").HandlerFn;
+const Context = @import("universal_lambda.zig").Context;
 
 const log = std.log.scoped(.lambda);
 
@@ -261,12 +262,17 @@ fn getEvent(allocator: std.mem.Allocator, event_data_uri: std.Uri) !?Event {
     const req_id = request_id.?;
     log.debug("got lambda request with id {s}", .{req_id});
 
-    var resp_payload = try std.ArrayList(u8).initCapacity(allocator, content_length.?);
-    defer resp_payload.deinit();
-    try resp_payload.resize(content_length.?);
-    var response_data = try resp_payload.toOwnedSlice();
-    errdefer allocator.free(response_data);
-    _ = try req.readAll(response_data);
+    var response_data: []u8 =
+        if (req.response.transfer_encoding) |_| // the only value here is "chunked"
+        try req.reader().readAllAlloc(allocator, std.math.maxInt(usize))
+    else blk: {
+        // content length
+        var tmp_data = try allocator.alloc(u8, content_length.?);
+        errdefer allocator.free(tmp_data);
+        _ = try req.readAll(tmp_data);
+        break :blk tmp_data;
+    };
+    std.debug.print("response_data: {s}", .{response_data});
 
     return Event.init(
         allocator,
@@ -391,8 +397,9 @@ fn serve(allocator: std.mem.Allocator, res: *std.http.Server.Response) ![]const 
     return server_response;
 }
 
-fn handler(allocator: std.mem.Allocator, event_data: []const u8) ![]const u8 {
+fn handler(allocator: std.mem.Allocator, event_data: []const u8, context: Context) ![]const u8 {
     _ = allocator;
+    _ = context;
     return event_data;
 }
 fn test_run(allocator: std.mem.Allocator, event_handler: HandlerFn) !std.Thread {
