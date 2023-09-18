@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const HandlerFn = *const fn (std.mem.Allocator, []const u8) anyerror![]const u8;
+const HandlerFn = @import("universal_lambda.zig").HandlerFn;
 
 const log = std.log.scoped(.lambda);
 
@@ -66,7 +66,7 @@ pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void { // T
         // reasonable to report back
         const event = ev.?;
         defer ev.?.deinit();
-        const event_response = event_handler(req_allocator, event.event_data) catch |err| {
+        const event_response = event_handler(req_allocator, event.event_data, .{}) catch |err| {
             event.reportError(@errorReturnTrace(), err, lambda_runtime_uri) catch unreachable;
             continue;
         };

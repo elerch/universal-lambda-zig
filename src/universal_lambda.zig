@@ -1,7 +1,7 @@
 const std = @import("std");
 const build_options = @import("build_options");
 
-const HandlerFn = *const fn (std.mem.Allocator, []const u8, Context) anyerror![]const u8;
+pub const HandlerFn = *const fn (std.mem.Allocator, []const u8, Context) anyerror![]const u8;
 
 const log = std.log.scoped(.universal_lambda);
 
@@ -10,6 +10,7 @@ pub const Context = struct {};
 
 const runFn = blk: {
     switch (build_options.build_type) {
+        .awslambda => break :blk @import("lambda.zig").run,
         .standalone_server => break :blk runStandaloneServer,
         .exe_run => break :blk runExe,
         else => @compileError("Provider interface for " ++ @tagName(build_options.build_type) ++ " has not yet been implemented"),

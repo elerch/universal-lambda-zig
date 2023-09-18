@@ -126,6 +126,7 @@ pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void
     // The architectures option was introduced in 2.2.43 released 2021-10-01
     // We want to use arm64 here because it is both faster and cheaper for most
     // Amazon Linux 2 is the only arm64 supported option
+    // TODO: This should determine compilation target and use x86_64 if needed
     const not_found = "aws lambda create-function --architectures arm64 --runtime provided.al2 --function-name {s} --zip-file fileb://{s} --handler not_applicable {s} && touch {s}";
     const not_found_fmt = try std.fmt.allocPrint(b.allocator, not_found, .{ function_name, function_zip, iam_role, function_name_file });
     defer b.allocator.free(not_found_fmt);
