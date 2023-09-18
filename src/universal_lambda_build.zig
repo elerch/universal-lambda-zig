@@ -13,14 +13,8 @@ pub const BuildType = enum {
 };
 
 pub fn configureBuild(b: *std.Build, exe: *std.Build.Step.Compile) !void {
-    // Add steps
-    try @import("lambdabuild.zig").configureBuild(b, exe);
-    try @import("standalone_server_build.zig").configureBuild(b, exe);
-    // Add options module so we can let our universal_lambda know what
-    // type of interface is necessary
-
-    // Add module
     const file_location = try findFileLocation(b);
+    // Add module
     exe.addAnonymousModule("universal_lambda_handler", .{
         // Source file can be anywhere on disk, does not need to be a subdirectory
         .source_file = .{ .path = b.pathJoin(&[_][]const u8{ file_location, "universal_lambda.zig" }) },
@@ -29,6 +23,15 @@ pub fn configureBuild(b: *std.Build, exe: *std.Build.Step.Compile) !void {
             .module = try createOptionsModule(b, exe),
         }},
     });
+
+    // Add steps
+    try @import("lambdabuild.zig").configureBuild(b, exe);
+    try @import("standalone_server_build.zig").configureBuild(b, exe);
+    try @import("flexilib_build.zig").configureBuild(b, exe, file_location);
+
+    // Add options module so we can let our universal_lambda know what
+    // type of interface is necessary
+
 }
 
 /// This function relies on internal implementation of the build runner
