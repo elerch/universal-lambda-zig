@@ -487,7 +487,7 @@ test "several requests do not fail" {
     ;
 
     const expected_response =
-        \\{ "content": "{"foo": "bar", "baz": "qux"}" }
+        \\{"foo": "bar", "baz": "qux"}
     ;
     const lambda_response = try lambda_request(allocator, request, 5);
     defer deinit();
