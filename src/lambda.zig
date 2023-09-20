@@ -367,7 +367,7 @@ fn processRequest(allocator: std.mem.Allocator, server: *std.http.Server) !void 
     var response_bytes: []const u8 = errbuf[0..];
 
     if (res.request.content_length) |l|
-        server_request_aka_lambda_response = try res.reader().readAllAlloc(allocator, @as(usize, l));
+        server_request_aka_lambda_response = try res.reader().readAllAlloc(allocator, @as(usize, @intCast(l)));
 
     log.debug(
         "tid {d} (server): {d} bytes read from request",
