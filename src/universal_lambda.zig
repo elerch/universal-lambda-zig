@@ -120,3 +120,10 @@ fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler
     _ = try res.writer().writeAll(response_bytes);
     try res.finish();
 }
+
+test {
+    std.testing.refAllDecls(@This()); // standalone, standalone web server
+    std.testing.refAllDecls(@import("lambda.zig")); // lambda
+    // TODO: re-enable
+    // std.testing.refAllDecls(@import("flexilib.zig")); // flexilib
+}
