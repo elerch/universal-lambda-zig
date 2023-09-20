@@ -277,7 +277,6 @@ fn getEvent(allocator: std.mem.Allocator, event_data_uri: std.Uri) !?Event {
         _ = try req.readAll(tmp_data);
         break :blk tmp_data;
     };
-    std.debug.print("response_data: {s}", .{response_data});
 
     return Event.init(
         allocator,
