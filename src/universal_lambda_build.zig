@@ -25,7 +25,7 @@ pub fn configureBuild(b: *std.Build, exe: *std.Build.Step.Compile) !void {
     });
 
     // Add steps
-    try @import("lambdabuild.zig").configureBuild(b, exe);
+    try @import("lambda_build.zig").configureBuild(b, exe);
     try @import("standalone_server_build.zig").configureBuild(b, exe);
     try @import("flexilib_build.zig").configureBuild(b, exe, file_location);
 
