@@ -184,9 +184,14 @@ const Event = struct {
         var req = try cl.request(.POST, response_uri, empty_headers, .{});
         // var req = try client.?.request(.POST, response_uri, empty_headers, .{});
         defer req.deinit();
+        // Lambda does different things, depending on the runtime. Go 1.x takes
+        // any return value but escapes double quotes. Custom runtimes can
+        // do whatever they want. node I believe wraps as a json object. We're
+        // going to leave the return value up to the handler, and they can
+        // use a seperate API for normalization so we're explicit.
         const response_content = try std.fmt.allocPrint(
             self.allocator,
-            "{{ \"content\": \"{s}\" }}",
+            "{s}",
             .{event_response},
         );
         defer self.allocator.free(response_content);
@@ -465,9 +470,8 @@ test "basic request" {
         \\{"foo": "bar", "baz": "qux"}
     ;
 
-    // This is what's actually coming back. Is this right?
     const expected_response =
-        \\{ "content": "{"foo": "bar", "baz": "qux"}" }
+        \\{"foo": "bar", "baz": "qux"}
     ;
     const lambda_response = try lambda_request(allocator, request, 1);
     defer deinit();
@@ -482,7 +486,6 @@ test "several requests do not fail" {
         \\{"foo": "bar", "baz": "qux"}
     ;
 
-    // This is what's actually coming back. Is this right?
     const expected_response =
         \\{ "content": "{"foo": "bar", "baz": "qux"}" }
     ;

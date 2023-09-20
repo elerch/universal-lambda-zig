@@ -12,22 +12,24 @@ pub const BuildType = enum {
     flexilib,
 };
 
-pub fn configureBuild(b: *std.Build, exe: *std.Build.Step.Compile) !void {
+pub var module_root: ?[]const u8 = null;
+
+pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     const file_location = try findFileLocation(b);
     // Add module
-    exe.addAnonymousModule("universal_lambda_handler", .{
+    cs.addAnonymousModule("universal_lambda_handler", .{
         // Source file can be anywhere on disk, does not need to be a subdirectory
         .source_file = .{ .path = b.pathJoin(&[_][]const u8{ file_location, "universal_lambda.zig" }) },
         .dependencies = &[_]std.Build.ModuleDependency{.{
             .name = "build_options",
-            .module = try createOptionsModule(b, exe),
+            .module = try createOptionsModule(b, cs),
         }},
     });
 
     // Add steps
-    try @import("lambda_build.zig").configureBuild(b, exe);
-    try @import("standalone_server_build.zig").configureBuild(b, exe);
-    try @import("flexilib_build.zig").configureBuild(b, exe, file_location);
+    try @import("lambda_build.zig").configureBuild(b, cs);
+    try @import("standalone_server_build.zig").configureBuild(b, cs);
+    try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
 
     // Add options module so we can let our universal_lambda know what
     // type of interface is necessary
@@ -58,6 +60,7 @@ pub fn configureBuild(b: *std.Build, exe: *std.Build.Step.Compile) !void {
 /// for the example build.zig to simply import the file directly than it is
 /// to pull from a download location and update hashes every time we change
 fn findFileLocation(b: *std.Build) ![]const u8 {
+    if (module_root) |r| return b.pathJoin(&[_][]const u8{ r, "src" });
     const build_root = b.option([]const u8, "universal_lambda_build_root", "Build root for universal lambda (development of universal lambda only)");
     if (build_root) |br| {
         return b.pathJoin(&[_][]const u8{ br, "src" });
@@ -72,7 +75,7 @@ fn findFileLocation(b: *std.Build) ![]const u8 {
 /// Make our target platform visible to runtime through an import
 /// called "build_options". This will also be available to the consuming
 /// executable if needed
-fn createOptionsModule(b: *std.Build, exe: *std.Build.Step.Compile) !*std.Build.Module {
+pub fn createOptionsModule(b: *std.Build, cs: *std.Build.Step.Compile) !*std.Build.Module {
     // We need to go through the command line args, look for argument(s)
     // between "build" and anything prefixed with "-". First take, blow up
     // if there is more than one. That's the step we're rolling with
@@ -83,8 +86,8 @@ fn createOptionsModule(b: *std.Build, exe: *std.Build.Step.Compile) !*std.Build.
     defer b.allocator.free(args);
     const options = b.addOptions();
     options.addOption(BuildType, "build_type", findBuildType(args) orelse .exe_run);
-    exe.addOptions("build_options", options);
-    return exe.modules.get("build_options").?;
+    cs.addOptions("build_options", options);
+    return cs.modules.get("build_options").?;
 }
 
 fn findBuildType(build_args: [][:0]u8) ?BuildType {
