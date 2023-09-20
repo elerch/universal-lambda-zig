@@ -3,7 +3,7 @@ const std = @import("std");
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -23,6 +23,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    // Because we are...well, ourselves, we'll manually override the module
+    // root (we are not a module here).
+    const ulb = @import("src/universal_lambda_build.zig");
+    ulb.module_root = "";
+    _ = try ulb.createOptionsModule(b, lib);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -32,12 +37,14 @@ pub fn build(b: *std.Build) void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/universal_lambda.zig" },
         .target = target,
         .optimize = optimize,
     });
+    _ = try ulb.createOptionsModule(b, main_tests);
 
-    const run_main_tests = b.addRunArtifact(main_tests);
+    var run_main_tests = b.addRunArtifact(main_tests);
+    run_main_tests.skip_foreign_checks = true;
 
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build test`
