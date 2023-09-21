@@ -65,12 +65,29 @@ fn findFileLocation(b: *std.Build) ![]const u8 {
     if (build_root) |br| {
         return b.pathJoin(&[_][]const u8{ br, "src" });
     }
-    const build_runner = @import("root");
-    const deps = build_runner.dependencies;
-    const build_roots = deps.build_root;
-    if (!@hasField(build_roots, "universal_lambda_build"))
-        @panic("Dependency in build.zig.zon must be named 'universal_lambda_build'");
-    return b.pathJoin(&[_][]const u8{ @field(build_roots, "universal_lambda_build"), "src" });
+    // This is introduced post 0.11. Once it is available, we can skip the
+    // access check, and instead check the end of the path matches the dependency
+    // hash
+    // for (b.available_deps) |dep| {
+    //     std.debug.print("{}", .{dep});
+    //     // if (std.
+    // }
+    const ulb_root = outer_blk: {
+        // trigger initlialization if it hasn't been initialized already
+        _ = b.dependency("universal_lambda_build", .{}); //b.args);
+        var str_iterator = b.initialized_deps.iterator();
+        while (str_iterator.next()) |entry| {
+            const br = entry.key_ptr.*;
+            const marker_found = blk: {
+                // Check for a file that should only exist in our package
+                std.fs.accessAbsolute(b.pathJoin(&[_][]const u8{ br, "src", "flexilib.zig" }), .{}) catch break :blk false;
+                break :blk true;
+            };
+            if (marker_found) break :outer_blk br;
+        }
+        return error.CannotFindUniversalLambdaBuildRoot;
+    };
+    return b.pathJoin(&[_][]const u8{ ulb_root, "src" });
 }
 /// Make our target platform visible to runtime through an import
 /// called "build_options". This will also be available to the consuming
