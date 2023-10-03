@@ -62,23 +62,11 @@ export fn handle_request(request: *interface.Request) callconv(.C) ?*interface.R
 fn handleRequest(allocator: std.mem.Allocator, request: interface.ZigRequest, response: interface.ZigResponse) !void {
     // setup
     var response_writer = response.body.writer();
-    try response_writer.writeAll(try client_handler.handler(allocator, request.content, .{}));
-    // real work
-    for (request.headers) |h| {
-        const header = interface.toZigHeader(h);
-        // std.debug.print("\n{s}: {s}\n", .{ header.name, header.value });
-        if (std.ascii.eqlIgnoreCase(header.name, "host") and std.mem.startsWith(u8, header.value, "iam")) {
-            try response_writer.print("iam response", .{});
-            return;
-        }
-        if (std.ascii.eqlIgnoreCase(header.name, "x-slow")) {
-            std.time.sleep(std.time.ns_per_ms * (std.fmt.parseInt(usize, header.value, 10) catch 1000));
-            try response_writer.print("i am slow\n\n", .{});
-            return;
-        }
-    }
-    try response.headers.put("X-custom-foo", "bar");
-    log.info("handlerequest header count {d}", .{response.headers.count()});
+    // dispatch to our actual handler
+    try response_writer.writeAll(try client_handler.handler(allocator, request.content, .{ .flexilib = .{
+        .request = request,
+        .response = response,
+    } }));
 }
 // Need to figure out how tests would work
 test "handle_request" {

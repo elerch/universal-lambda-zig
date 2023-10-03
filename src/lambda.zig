@@ -67,7 +67,10 @@ pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void { // T
         // reasonable to report back
         const event = ev.?;
         defer ev.?.deinit();
-        const event_response = event_handler(req_allocator, event.event_data, .{}) catch |err| {
+        // Lambda does not have context, just environment variables. API Gateway
+        // might be configured to pass in lots of context, but this comes through
+        // event data, not context.
+        const event_response = event_handler(req_allocator, event.event_data, .{ .none = {} }) catch |err| {
             event.reportError(@errorReturnTrace(), err, lambda_runtime_uri) catch unreachable;
             continue;
         };

@@ -1,12 +1,19 @@
 const std = @import("std");
 const build_options = @import("build_options");
-
+const flexilib = @import("flexilib-interface.zig"); // TODO: pull in flexilib directly
 pub const HandlerFn = *const fn (std.mem.Allocator, []const u8, Context) anyerror![]const u8;
 
 const log = std.log.scoped(.universal_lambda);
 
 // TODO: Should this be union?
-pub const Context = struct {};
+pub const Context = union(enum) {
+    web_request: *std.http.Server.Response,
+    flexilib: struct {
+        request: flexilib.Request,
+        response: flexilib.Response,
+    },
+    none: void,
+};
 
 const runFn = blk: {
     switch (build_options.build_type) {
@@ -37,11 +44,12 @@ fn runExe(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void {
 
     const aa = arena.allocator();
 
+    const data = try std.io.getStdIn().reader().readAllAlloc(aa, std.math.maxInt(usize));
     // We're setting up an arena allocator. While we could use a gpa and get
     // some additional safety, this is now "production" runtime, and those
     // things are better handled by unit tests
     const writer = std.io.getStdOut().writer();
-    try writer.writeAll(try event_handler(aa, "", .{}));
+    try writer.writeAll(try event_handler(aa, data, .{ .none = {} }));
     try writer.writeAll("\n");
 }
 
@@ -105,7 +113,7 @@ fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler
         try aa.dupe(u8, "");
     // no need to free - will be handled by arena
 
-    response_bytes = event_handler(aa, body, .{}) catch |e| brk: {
+    response_bytes = event_handler(aa, body, .{ .web_request = &res }) catch |e| brk: {
         res.status = .internal_server_error;
         // TODO: more about this particular request
         log.err("Unexpected error from executor processing request: {any}", .{e});
