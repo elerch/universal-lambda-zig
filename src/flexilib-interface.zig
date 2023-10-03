@@ -17,6 +17,9 @@ pub const Response = extern struct {
 };
 
 pub const Request = extern struct {
+    target: [*]const u8,
+    target_len: usize,
+
     method: [*:0]u8,
     method_len: usize,
 
@@ -33,6 +36,7 @@ threadlocal var allocator: ?*std.mem.Allocator = null;
 const log = std.log.scoped(.interface);
 
 pub const ZigRequest = struct {
+    target: []const u8,
     method: [:0]u8,
     content: []u8,
     headers: []Header,
@@ -104,6 +108,7 @@ pub fn handleRequest(request: *Request, zigRequestHandler: ZigRequestHandler) ?*
     zigRequestHandler(
         alloc,
         .{
+            .target = request.target[0..request.target_len],
             .method = request.method[0..request.method_len :0],
             .content = request.content[0..request.content_len],
             .headers = request.headers[0..request.headers_len],
