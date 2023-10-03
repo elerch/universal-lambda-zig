@@ -9,8 +9,8 @@ const log = std.log.scoped(.universal_lambda);
 pub const Context = union(enum) {
     web_request: *std.http.Server.Response,
     flexilib: struct {
-        request: flexilib.Request,
-        response: flexilib.Response,
+        request: flexilib.ZigRequest,
+        response: flexilib.ZigResponse,
     },
     none: void,
 };
