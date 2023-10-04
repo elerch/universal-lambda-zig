@@ -23,6 +23,12 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+    const flexilib_dep = b.dependency("flexilib", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const flexilib_module = flexilib_dep.module("flexilib-interface");
+    lib.addModule("flexilib-interface", flexilib_module);
     // Because we are...well, ourselves, we'll manually override the module
     // root (we are not a module here).
     const ulb = @import("src/universal_lambda_build.zig");
@@ -43,6 +49,7 @@ pub fn build(b: *std.Build) !void {
     });
     _ = try ulb.createOptionsModule(b, main_tests);
 
+    main_tests.addModule("flexilib-interface", flexilib_module);
     var run_main_tests = b.addRunArtifact(main_tests);
     run_main_tests.skip_foreign_checks = true;
 

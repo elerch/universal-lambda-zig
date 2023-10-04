@@ -1,6 +1,6 @@
 const std = @import("std");
 const build_options = @import("build_options");
-const flexilib = @import("flexilib-interface.zig"); // TODO: pull in flexilib directly
+const flexilib = @import("flexilib-interface");
 pub const HandlerFn = *const fn (std.mem.Allocator, []const u8, Context) anyerror![]const u8;
 
 const log = std.log.scoped(.universal_lambda);

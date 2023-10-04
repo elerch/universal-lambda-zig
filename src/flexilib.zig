@@ -1,5 +1,5 @@
 const std = @import("std");
-const interface = @import("flexilib-interface.zig"); // TODO: pull in flexilib directly
+const interface = @import("flexilib-interface");
 const testing = std.testing;
 
 const log = std.log.scoped(.@"main-lib");
