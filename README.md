@@ -28,15 +28,22 @@ Create a `build.zig.zon` with the following contents:
 
     .dependencies = .{
         .universal_lambda_build = .{
-            .url = "https://git.lerch.org/lobo/universal-lambda-zig/archive/ff691a439105ca6800757a39c208c11fcdabb058.tar.gz",
-            .hash = "12205386f7353907deb7f195d920bc028e0e73f53dcd23c5e77210a39b31726bf46f",
+            .url = "https://git.lerch.org/lobo/universal-lambda-zig/archive/ea730c50a50faddf4af719bbb3d8d5fac09e0c19.tar.gz",
+            .hash = "1220be3a235a6506dbfef0ba6705e728eebabf9af2b33364aead1c30cdcde353f357",
+        },
+        .flexilib = .{
+            .url = "https://git.lerch.org/lobo/flexilib/archive/c44ad2ba84df735421bef23a2ad612968fb50f06.tar.gz",
+            .hash = "122051fdfeefdd75653d3dd678c8aa297150c2893f5fad0728e0d953481383690dbc",
         },
     },
 }
 ```
 
 Due to limitations in the build apis related to relative file paths, the
-dependency name currently must be "universal_lambda_build".
+dependency name currently must be "universal_lambda_build". Also, note that
+the flexilib dependency is required at all times. This requirement may go away
+with zig 0.12 (see [#17135](https://github.com/ziglang/zig/issues/17135))
+and/or changes to this library.
 
 **Build.zig:**
 
