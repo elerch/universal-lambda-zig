@@ -16,24 +16,52 @@ pub var module_root: ?[]const u8 = null;
 
 pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     const file_location = try findFileLocation(b);
+    /////////////////////////////////////////////////////////////////////////
+    // Add modules
+    //
+    // We will create the following modules for downstream consumption:
+    //
+    // * build_options
+    // * flexilib-interface
+    // * universal_lambda_handler
+    //
+    /////////////////////////////////////////////////////////////////////////
+    const options_module = try createOptionsModule(b, cs);
+
+    // We need to add the interface module here as well, so universal_lambda.zig
+    // can reference it. Unfortunately, this creates an issue that the consuming
+    // build.zig.zon must have flexilib included, even if they're not building
+    // flexilib. TODO: Accept for now, but we need to think through this situation
+    const flexilib_dep = b.dependency("flexilib", .{
+        .target = cs.target,
+        .optimize = cs.optimize,
+    });
+    const flexilib_module = flexilib_dep.module("flexilib-interface");
+    // Make the interface available for consumption
+    cs.addModule("flexilib-interface", flexilib_module);
     // Add module
     cs.addAnonymousModule("universal_lambda_handler", .{
         // Source file can be anywhere on disk, does not need to be a subdirectory
         .source_file = .{ .path = b.pathJoin(&[_][]const u8{ file_location, "universal_lambda.zig" }) },
-        .dependencies = &[_]std.Build.ModuleDependency{.{
-            .name = "build_options",
-            .module = try createOptionsModule(b, cs),
-        }},
+        // We alsso need the interface module available here
+        .dependencies = &[_]std.Build.ModuleDependency{
+            // Add options module so we can let our universal_lambda know what
+            // type of interface is necessary
+            .{
+                .name = "build_options",
+                .module = options_module,
+            },
+            .{
+                .name = "flexilib-interface",
+                .module = flexilib_module,
+            },
+        },
     });
 
     // Add steps
     try @import("lambda_build.zig").configureBuild(b, cs);
     try @import("standalone_server_build.zig").configureBuild(b, cs);
     try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
-
-    // Add options module so we can let our universal_lambda know what
-    // type of interface is necessary
-
 }
 
 /// This function relies on internal implementation of the build runner

@@ -9,23 +9,6 @@ const builtin = @import("builtin");
 pub fn configureBuild(b: *std.build.Builder, cs: *std.Build.Step.Compile, build_root_src: []const u8) !void {
     const package_step = b.step("flexilib", "Create a flexilib dynamic library");
 
-    // We'll need to add the interface module here as well
-    const flexilib_dep = b.dependency("flexilib", .{
-        .target = cs.target,
-        .optimize = cs.optimize,
-    });
-    const flexilib_module = flexilib_dep.module("flexilib-interface");
-    cs.addModule("flexilib-interface", flexilib_module);
-
-    // const exe = b.addExecutable(.{
-    //     .name = "universal-lambda-example",
-    //     // In this case the main source file is merely a path, however, in more
-    //     // complicated build scripts, this could be a generated file.
-    //     .root_source_file = .{ .path = "src/main.zig" },
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
-    //
     const lib = b.addSharedLibrary(.{
         .name = cs.name,
         .root_source_file = .{ .path = b.pathJoin(&[_][]const u8{ build_root_src, "flexilib.zig" }) },
