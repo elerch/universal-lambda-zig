@@ -5,9 +5,14 @@ pub const HandlerFn = *const fn (std.mem.Allocator, []const u8, Context) anyerro
 
 const log = std.log.scoped(.universal_lambda);
 
-// TODO: Should this be union?
+const FakeResponse = struct {
+    request: struct {
+        target: []const u8,
+        headers: std.http.Headers,
+    },
+};
 pub const Context = union(enum) {
-    web_request: *std.http.Server.Response,
+    web_request: if (build_options.build_type == .exe_run) *FakeResponse else *std.http.Server.Response,
     flexilib: struct {
         request: flexilib.ZigRequest,
         response: flexilib.ZigResponse,

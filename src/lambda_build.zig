@@ -103,7 +103,7 @@ pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void
         const iam_role_file = b.getInstallPath(.bin, "iam_role");
 
         if (!fileExists(iam_role_file)) {
-            std.debug.print("file does not exist", .{});
+            // std.debug.print("file does not exist", .{});
             // Our cache file does not exist on disk, so we'll create/get the role
             // arn using the AWS CLI and dump to disk here
             const ifstatement_fmt =
