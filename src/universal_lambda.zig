@@ -136,7 +136,8 @@ fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler
 
 test {
     std.testing.refAllDecls(@This()); // standalone, standalone web server
-    std.testing.refAllDecls(@import("lambda.zig")); // lambda
+    // if (builtin.os.tag == .wasi) return error.SkipZigTest;
+    if (@import("builtin").os.tag != .wasi) std.testing.refAllDecls(@import("lambda.zig")); // lambda
     // TODO: re-enable
     // std.testing.refAllDecls(@import("flexilib.zig")); // flexilib
 }
