@@ -77,6 +77,10 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
                 .name = "flexilib-interface",
                 .module = flexilib_module,
             },
+            .{
+                .name = "universal_lambda_handler",
+                .module = cs.modules.get("universal_lambda_handler").?,
+            },
         },
     });
 
