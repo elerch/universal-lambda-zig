@@ -12,7 +12,10 @@ const FakeResponse = struct {
     },
 };
 pub const Context = union(enum) {
-    web_request: if (build_options.build_type == .exe_run) *FakeResponse else *std.http.Server.Response,
+    web_request: switch (build_options.build_type) {
+        .exe_run, .cloudflare => *FakeResponse,
+        else => *std.http.Server.Response,
+    },
     flexilib: struct {
         request: flexilib.ZigRequest,
         response: flexilib.ZigResponse,
