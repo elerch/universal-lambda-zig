@@ -32,6 +32,9 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     // can reference it. Unfortunately, this creates an issue that the consuming
     // build.zig.zon must have flexilib included, even if they're not building
     // flexilib. TODO: Accept for now, but we need to think through this situation
+    // This might be fixed in 0.12.0 (see https://github.com/ziglang/zig/issues/16172).
+    // We can also possibly use the findFileLocation hack above in concert with
+    // addAnonymousModule
     const flexilib_dep = b.dependency("flexilib", .{
         .target = cs.target,
         .optimize = cs.optimize,
@@ -62,6 +65,7 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     try @import("lambda_build.zig").configureBuild(b, cs);
     try @import("standalone_server_build.zig").configureBuild(b, cs);
     try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
+    try @import("cloudflare_build.zig").configureBuild(b, cs, file_location);
 }
 
 /// This function relies on internal implementation of the build runner

@@ -140,4 +140,6 @@ test {
     if (@import("builtin").os.tag != .wasi) std.testing.refAllDecls(@import("lambda.zig")); // lambda
     // TODO: re-enable
     // std.testing.refAllDecls(@import("flexilib.zig")); // flexilib
+    std.testing.refAllDecls(@import("CloudflareDeployStep.zig"));
+    std.testing.refAllDecls(@import("cloudflaredeploy.zig"));
 }
