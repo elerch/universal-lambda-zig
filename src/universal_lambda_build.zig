@@ -64,9 +64,9 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
 
     // Add steps
     try @import("lambda_build.zig").configureBuild(b, cs, function_name);
-    try @import("standalone_server_build.zig").configureBuild(b, cs);
-    try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
     try @import("cloudflare_build.zig").configureBuild(b, cs, function_name);
+    try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
+    try @import("standalone_server_build.zig").configureBuild(b, cs);
 }
 
 /// This function relies on internal implementation of the build runner
