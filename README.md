@@ -8,7 +8,7 @@ into a function that can be run as:
 * A standalone web server
 * An AWS Lambda function
 * A shared library in [flexilib](https://git.lerch.org/lobo/FlexiLib)
-* Cloudflare (TODO/Planned)
+* Cloudflare
 * etc
 
 Usage - Development
@@ -28,8 +28,8 @@ Create a `build.zig.zon` with the following contents:
 
     .dependencies = .{
         .universal_lambda_build = .{
-            .url = "https://git.lerch.org/lobo/universal-lambda-zig/archive/ea730c50a50faddf4af719bbb3d8d5fac09e0c19.tar.gz",
-            .hash = "1220be3a235a6506dbfef0ba6705e728eebabf9af2b33364aead1c30cdcde353f357",
+            .url = "https://git.lerch.org/lobo/universal-lambda-zig/archive/70b0fda03b9c54a6eda8d61cb8ab8b9d9f29b2ef.tar.gz",
+            .hash = "122004f2a4ad253be9b8d7989ca6508af1483d8a593ca7fee93627444b2b37d170d2",
         },
         .flexilib = .{
             .url = "https://git.lerch.org/lobo/flexilib/archive/c44ad2ba84df735421bef23a2ad612968fb50f06.tar.gz",
@@ -110,13 +110,22 @@ Linux:
   awslambda_deploy             Deploy the function
   awslambda_iam                Create/Get IAM role for function
   awslambda_run                Run the app in AWS lambda
-  standalone_server            Run the function in its own web server
+  cloudflare                   Deploy as Cloudflare worker (must be compiled with -Dtarget=wasm32-wasi)
   flexilib                     Create a flexilib dynamic library
+  standalone_server            Run the function in its own web server
 ```
 
 AWS Lambda is not currently available if building with other operating systems,
 as that set of build steps utilize system commands using the AWS CLI. This is
-likely to change in the future to enable other operating systems.
+likely to change in the future to enable other operating systems. All other
+build steps are available for all targets.
+
+Note that AWS Lambda will require that credentials are established using the
+same methods as checked by the AWS CLI and the AWS CLI is installed.
+
+If using Cloudflare deployment, either CLOUDFLARE_API_TOKEN or
+CLOUDFLARE_EMAIL/CLOUDFLARE_API_KEY environment variables must be set for
+successful deployment.
 
 To run as an executable, a simple `zig build` will build, or `zig build run`
 will run as expected. `zig build standalone_server run` will also build/run
