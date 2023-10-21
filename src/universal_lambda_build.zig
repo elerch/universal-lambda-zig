@@ -62,6 +62,24 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
         },
     });
 
+    cs.addAnonymousModule("universal_lambda_helpers", .{
+        // Source file can be anywhere on disk, does not need to be a subdirectory
+        .source_file = .{ .path = b.pathJoin(&[_][]const u8{ file_location, "helpers.zig" }) },
+        // We alsso need the interface module available here
+        .dependencies = &[_]std.Build.ModuleDependency{
+            // Add options module so we can let our universal_lambda know what
+            // type of interface is necessary
+            .{
+                .name = "build_options",
+                .module = options_module,
+            },
+            .{
+                .name = "flexilib-interface",
+                .module = flexilib_module,
+            },
+        },
+    });
+
     // Add steps
     try @import("lambda_build.zig").configureBuild(b, cs, function_name);
     try @import("cloudflare_build.zig").configureBuild(b, cs, function_name);
