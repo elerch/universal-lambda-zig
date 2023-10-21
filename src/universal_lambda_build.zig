@@ -15,6 +15,7 @@ pub const BuildType = enum {
 pub var module_root: ?[]const u8 = null;
 
 pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
+    const function_name = b.option([]const u8, "function-name", "Function name for Lambda [zig-fn]") orelse "zig-fn";
     const file_location = try findFileLocation(b);
     /////////////////////////////////////////////////////////////////////////
     // Add modules
@@ -62,10 +63,10 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     });
 
     // Add steps
-    try @import("lambda_build.zig").configureBuild(b, cs);
+    try @import("lambda_build.zig").configureBuild(b, cs, function_name);
     try @import("standalone_server_build.zig").configureBuild(b, cs);
     try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
-    try @import("cloudflare_build.zig").configureBuild(b, cs, file_location);
+    try @import("cloudflare_build.zig").configureBuild(b, cs, function_name);
 }
 
 /// This function relies on internal implementation of the build runner

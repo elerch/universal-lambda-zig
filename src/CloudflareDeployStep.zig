@@ -73,8 +73,8 @@ fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) !void {
         b.allocator,
         &client,
         self.worker_name,
-        script,
         self.options.wasm_dir orelse ".",
+        script,
         al.writer(),
         std.io.getStdErr().writer(),
     );

@@ -1,22 +1,21 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const CloudflareDeployStep = @import("CloudflareDeployStep");
+const CloudflareDeployStep = @import("CloudflareDeployStep.zig");
 
 const script = @embedFile("index.js");
 
-pub fn configureBuild(b: *std.build.Builder, cs: *std.Build.Step.Compile, build_root_src: []const u8) !void {
-    _ = build_root_src;
+pub fn configureBuild(b: *std.build.Builder, cs: *std.Build.Step.Compile, function_name: []const u8) !void {
     const deploy_cmd = CloudflareDeployStep.create(
         b,
-        "zigwasi",
+        function_name,
         .{ .path = "index.js" },
         .{
             .primary_file_data = script,
             .wasm_name = .{
-                .search = "zigout.wasm",
+                .search = "custom.wasm",
                 .replace = cs.name,
             },
-            .wasm_dir = b.getInstallDir(.bin, "."),
+            .wasm_dir = b.getInstallPath(.bin, "."),
         },
     );
     deploy_cmd.step.dependOn(b.getInstallStep());

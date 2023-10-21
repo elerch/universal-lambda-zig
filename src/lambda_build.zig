@@ -30,7 +30,7 @@ fn addArgs(allocator: std.mem.Allocator, original: []const u8, args: [][]const u
 /// awslambda_deploy depends on iam and package
 ///
 /// iam and package do not have any dependencies
-pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void {
+pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile, function_name: []const u8) !void {
     // The rest of this function is currently reliant on the use of Linux
     // system being used to build the lambda function
     //
@@ -132,7 +132,6 @@ pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void
 
         break :blk try std.fmt.allocPrint(b.allocator, "--role \"$(cat {s})\"", .{iam_role_file});
     };
-    const function_name = b.option([]const u8, "function-name", "Function name for Lambda [zig-fn]") orelse "zig-fn";
     const function_name_file = b.getInstallPath(.bin, function_name);
     const ifstatement = "if [ ! -f {s} ] || [ {s} -nt {s} ]; then if aws lambda get-function --function-name {s} 2>&1 |grep -q ResourceNotFoundException; then echo not found > /dev/null; {s}; else echo found > /dev/null; {s}; fi; fi";
     // The architectures option was introduced in 2.2.43 released 2021-10-01

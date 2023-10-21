@@ -24,7 +24,7 @@ const runFn = blk: {
     switch (build_options.build_type) {
         .awslambda => break :blk @import("lambda.zig").run,
         .standalone_server => break :blk runStandaloneServer,
-        .exe_run => break :blk runExe,
+        .exe_run, .cloudflare => break :blk runExe,
         else => @compileError("Provider interface for " ++ @tagName(build_options.build_type) ++ " has not yet been implemented"),
     }
 };
