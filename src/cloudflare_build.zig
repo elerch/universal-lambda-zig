@@ -5,6 +5,7 @@ const CloudflareDeployStep = @import("CloudflareDeployStep.zig");
 const script = @embedFile("index.js");
 
 pub fn configureBuild(b: *std.build.Builder, cs: *std.Build.Step.Compile, function_name: []const u8) !void {
+    const wasm_name = try std.fmt.allocPrint(b.allocator, "{s}.wasm", .{cs.name});
     const deploy_cmd = CloudflareDeployStep.create(
         b,
         function_name,
@@ -13,7 +14,7 @@ pub fn configureBuild(b: *std.build.Builder, cs: *std.Build.Step.Compile, functi
             .primary_file_data = script,
             .wasm_name = .{
                 .search = "custom.wasm",
-                .replace = cs.name,
+                .replace = wasm_name,
             },
             .wasm_dir = b.getInstallPath(.bin, "."),
         },
