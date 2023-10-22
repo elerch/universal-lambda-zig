@@ -4,6 +4,7 @@ on: [push]
 env:
   ACTIONS_RUNTIME_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   ACTIONS_RUNTIME_URL: ${{ env.GITHUB_SERVER_URL }}/api/actions_pipeline/
+  WASMTIME_BACKTRACE_DETAILS: 1
 jobs:
   build-zig-0.11.0-amd64-host:
     runs-on: ubuntu-latest
