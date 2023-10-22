@@ -24,7 +24,7 @@ jobs:
       - run: curl https://wasmtime.dev/install.sh -sSf | bash
       - run: zig build test
       - run: zig build test -Dtarget=arm-linux # we want to know we can build for 32 bit 
-      - run: zig build test -Dtarget=wasm32-wasi -fwasmtime # downstream needs this for CF workers
+      - run: PATH=${HOME}/.wasmtime/bin:${PATH} zig build test -Dtarget=wasm32-wasi -fwasmtime # downstream needs this for CF workers
       - name: Notify
         uses: https://git.lerch.org/lobo/action-notify-ntfy@v2
         if: always()
