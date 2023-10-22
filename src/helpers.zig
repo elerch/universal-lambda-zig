@@ -161,6 +161,10 @@ test {
 }
 
 test "can get headers" {
+    // This test complains about a leak in WASI, but in WASI, we're not running
+    // long processes (just command line stuff), so we don't really care about
+    // leaks. There doesn't seem to be a way to ignore leak detection
+    if (@import("builtin").os.tag == .wasi) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const context = universal_lambda.Context{
         .none = {},
