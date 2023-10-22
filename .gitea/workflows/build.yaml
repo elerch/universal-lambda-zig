@@ -21,9 +21,10 @@ jobs:
       - run: wget -q https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz
       - run: tar x -C /usr/local -f zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz
       - run: ln -s /usr/local/zig-linux-${ARCH}-${ZIG_VERSION}/zig /usr/local/bin/zig
+      - run: curl https://wasmtime.dev/install.sh -sSf | bash
       - run: zig build test
       - run: zig build test -Dtarget=arm-linux # we want to know we can build for 32 bit 
-      - run: zig build test -Dtarget=wasm32-wasi # downstream needs this for CF workers
+      - run: zig build test -Dtarget=wasm32-wasi -fwasmtime # downstream needs this for CF workers
       - name: Notify
         uses: https://git.lerch.org/lobo/action-notify-ntfy@v2
         if: always()
