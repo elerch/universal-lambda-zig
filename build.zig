@@ -53,11 +53,38 @@ pub fn build(b: *std.Build) !void {
     var run_main_tests = b.addRunArtifact(main_tests);
     run_main_tests.skip_foreign_checks = true;
 
+    const helper_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/helpers.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    _ = try ulb.createOptionsModule(b, helper_tests);
+    // Add module
+    helper_tests.addAnonymousModule("universal_lambda_handler", .{
+        // Source file can be anywhere on disk, does not need to be a subdirectory
+        .source_file = .{ .path = "src/universal_lambda.zig" },
+        // We alsso need the interface module available here
+        .dependencies = &[_]std.Build.ModuleDependency{
+            // Add options module so we can let our universal_lambda know what
+            // type of interface is necessary
+            .{
+                .name = "build_options",
+                .module = main_tests.modules.get("build_options").?,
+            },
+            .{
+                .name = "flexilib-interface",
+                .module = flexilib_module,
+            },
+        },
+    });
+    var run_helper_tests = b.addRunArtifact(helper_tests);
+
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build test`
     // This will evaluate the `test` step rather than the default, which is "install".
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_main_tests.step);
+    test_step.dependOn(&run_helper_tests.step);
 
     _ = b.addModule("universal_lambda_helpers", .{
         .source_file = .{ .path = "src/helpers.zig" },

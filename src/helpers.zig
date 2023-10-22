@@ -55,22 +55,61 @@ fn findTargetWithoutContext(allocator: std.mem.Allocator) ![]const u8 {
     return "/";
 }
 
-pub fn getFirstHeaderValue(allocator: std.mem.Allocator, context: universal_lambda.Context, header_name: []const u8) !?[]const u8 {
+pub const Headers = struct {
+    http_headers: *std.http.Headers,
+    owned: bool,
+    allocator: std.mem.Allocator,
+
+    const Self = @This();
+
+    pub fn init(allocator: std.mem.Allocator, headers: *std.http.Headers, owned: bool) Self {
+        return .{
+            .http_headers = headers,
+            .owned = owned,
+            .allocator = allocator,
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        if (self.owned) {
+            self.http_headers.deinit();
+            self.allocator.destroy(self.http_headers);
+            self.http_headers = undefined;
+        }
+    }
+};
+
+/// Get headers from request. If Lambda is not in a web context, headers
+/// will be gathered from the command line and include all environment variables
+pub fn allHeaders(allocator: std.mem.Allocator, context: universal_lambda.Context) !Headers {
     switch (context) {
-        .web_request => |res| return res.request.headers.getFirstValue(header_name),
+        .web_request => |res| return Headers.init(allocator, &res.request.headers, false),
         .flexilib => |ctx| {
+            var headers = try allocator.create(std.http.Headers);
+            errdefer allocator.destroy(headers);
+            headers.allocator = allocator;
+            headers.list = .{};
+            headers.index = .{};
+            headers.owned = true;
+            errdefer headers.deinit();
             for (ctx.request.headers) |hdr| {
-                if (std.ascii.eqlIgnoreCase(hdr.name_ptr[0..hdr.name_len], header_name)) {
-                    return hdr.value_ptr[0..hdr.value_len];
-                }
+                try headers.append(hdr.name_ptr[0..hdr.name_len], hdr.value_ptr[0..hdr.value_len]);
             }
-            return null;
+            return Headers.init(allocator, headers, true);
         },
-        .none => return findHeaderWithoutContext(allocator, header_name),
+        .none => return headersWithoutContext(allocator),
     }
 }
 
-fn findHeaderWithoutContext(allocator: std.mem.Allocator, header_name: []const u8) !?[]const u8 {
+fn headersWithoutContext(allocator: std.mem.Allocator) !Headers {
+    var headers = try allocator.create(std.http.Headers);
+    errdefer allocator.destroy(headers);
+    headers.allocator = allocator;
+    headers.list = .{};
+    headers.index = .{};
+    headers.owned = true;
+    errdefer headers.deinit();
+
     // without context, we have environment variables
     // possibly event data (API Gateway does this if so configured),
     // or the command line. For headers, we'll prioritize command line options
@@ -85,11 +124,12 @@ fn findHeaderWithoutContext(allocator: std.mem.Allocator, header_name: []const u
             {
                 return error.CommandLineError;
             }
+            is_header_option = false;
             var split = std.mem.splitSequence(u8, arg, "=");
             const name = split.next().?;
-            if (!std.ascii.eqlIgnoreCase(name, header_name)) continue;
-            if (split.next()) |s| return s; // found it
-            continue; // bad format, but we're not returning errors. We can cope with this one though
+            if (split.next()) |s| {
+                try headers.append(name, s);
+            } else return error.CommandLineError;
         }
         if (std.mem.startsWith(u8, arg, "-" ++ header_option.short) or
             std.mem.startsWith(u8, arg, "--" ++ header_option.long))
@@ -106,11 +146,26 @@ fn findHeaderWithoutContext(allocator: std.mem.Allocator, header_name: []const u
     defer map.deinit();
     var it = map.iterator();
     while (it.next()) |kvp| {
-        // TODO: This is the only place where allocation is necessary. This
-        // will work, because in reality there is always an area allocator passed
-        // to us. But if there's not....
-        if (std.ascii.eqlIgnoreCase(kvp.key_ptr.*, header_name))
-            return try allocator.dupe(u8, kvp.value_ptr.*);
+        // Do not allow environment variables to interfere with command line
+        if (headers.getFirstValue(kvp.key_ptr.*) == null)
+            try headers.append(
+                kvp.key_ptr.*,
+                kvp.value_ptr.*,
+            );
     }
-    return null; // nowhere to be found
+    return Headers.init(allocator, headers, true); // nowhere to be found
+}
+
+test {
+    std.testing.refAllDecls(@This());
+}
+
+test "can get headers" {
+    const allocator = std.testing.allocator;
+    const context = universal_lambda.Context{
+        .none = {},
+    };
+    var headers = try allHeaders(allocator, context);
+    defer headers.deinit();
+    try std.testing.expect(headers.http_headers.list.items.len > 0);
 }
