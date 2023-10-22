@@ -127,9 +127,7 @@ fn headersWithoutContext(allocator: std.mem.Allocator) !Headers {
             is_header_option = false;
             var split = std.mem.splitSequence(u8, arg, "=");
             const name = split.next().?;
-            if (split.next()) |s| {
-                try headers.append(name, s);
-            } else return error.CommandLineError;
+            try headers.append(name, split.rest());
         }
         if (std.mem.startsWith(u8, arg, "-" ++ header_option.short) or
             std.mem.startsWith(u8, arg, "--" ++ header_option.long))
