@@ -78,6 +78,7 @@ pub fn build(b: *std.Build) !void {
         },
     });
     var run_helper_tests = b.addRunArtifact(helper_tests);
+    run_helper_tests.skip_foreign_checks = true;
 
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build test`
