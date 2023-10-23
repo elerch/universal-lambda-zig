@@ -59,14 +59,17 @@ export fn handle_request(request: *interface.Request) callconv(.C) ?*interface.R
 //
 // handleRequest function here is the last line of boilerplate and the
 // entry to a request
-fn handleRequest(allocator: std.mem.Allocator, request: interface.ZigRequest, response: interface.ZigResponse) !void {
+fn handleRequest(allocator: std.mem.Allocator, response: *interface.ZigResponse) !void {
     // setup
     var response_writer = response.body.writer();
     // dispatch to our actual handler
-    try response_writer.writeAll(try client_handler.handler(allocator, request.content, .{ .flexilib = .{
-        .request = request,
-        .response = response,
-    } }));
+    try response_writer.writeAll(try client_handler.handler(
+        allocator,
+        response.request.content,
+        .{
+            .flexilib = response,
+        },
+    ));
 }
 // Need to figure out how tests would work
 test "handle_request" {
