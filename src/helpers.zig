@@ -9,6 +9,7 @@ const Option = struct {
 };
 
 const target_option: Option = .{ .short = "t", .long = "target" };
+const url_option: Option = .{ .short = "u", .long = "url" };
 const header_option: Option = .{ .short = "h", .long = "header" };
 
 /// Finds the "target" for this request. In a web request, this is the path
@@ -32,15 +33,18 @@ fn findTargetWithoutContext(allocator: std.mem.Allocator) ![]const u8 {
     var argIterator = try std.process.argsWithAllocator(allocator);
     _ = argIterator.next();
     var is_target_option = false;
+    var is_url_option = false;
     while (argIterator.next()) |arg| {
-        if (is_target_option) {
+        if (is_target_option or is_url_option) {
             if (std.mem.startsWith(u8, arg, "-") or
                 std.mem.startsWith(u8, arg, "--"))
             {
                 // bad user input, but we're not returning errors here
                 return "/";
             }
-            return arg;
+            if (is_target_option)
+                return arg;
+            return (try std.Uri.parse(arg)).path;
         }
         if (std.mem.startsWith(u8, arg, "-" ++ target_option.short) or
             std.mem.startsWith(u8, arg, "--" ++ target_option.long))
@@ -48,8 +52,19 @@ fn findTargetWithoutContext(allocator: std.mem.Allocator) ![]const u8 {
             // We'll search for --target=blah style first
             var split = std.mem.splitSequence(u8, arg, "=");
             _ = split.next();
-            if (split.next()) |s| return s; // found it
+            const rest = split.rest();
+            if (split.next()) |_| return rest; // found it
             is_target_option = true;
+        }
+        if (std.mem.startsWith(u8, arg, "-" ++ url_option.short) or
+            std.mem.startsWith(u8, arg, "--" ++ url_option.long))
+        {
+            // We'll search for --target=blah style first
+            var split = std.mem.splitSequence(u8, arg, "=");
+            _ = split.next();
+            const rest = split.rest();
+            if (split.next()) |_| return (try std.Uri.parse(rest)).path; // found it
+            is_url_option = true;
         }
     }
     return "/";

@@ -12,6 +12,7 @@ pub const Response = struct {
     status: std.http.Status = .ok,
     reason: ?[]const u8 = null,
     request: struct {
+        // TODO: We will likely end up needing method here at some point...
         target: []const u8,
         headers: std.http.Headers,
     },
