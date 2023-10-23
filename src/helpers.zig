@@ -84,19 +84,7 @@ pub const Headers = struct {
 pub fn allHeaders(allocator: std.mem.Allocator, context: universal_lambda.Context) !Headers {
     switch (context) {
         .web_request => |res| return Headers.init(allocator, &res.request.headers, false),
-        .flexilib => |ctx| {
-            var headers = try allocator.create(std.http.Headers);
-            errdefer allocator.destroy(headers);
-            headers.allocator = allocator;
-            headers.list = .{};
-            headers.index = .{};
-            headers.owned = true;
-            errdefer headers.deinit();
-            for (ctx.request.headers) |hdr| {
-                try headers.append(hdr.name_ptr[0..hdr.name_len], hdr.value_ptr[0..hdr.value_len]);
-            }
-            return Headers.init(allocator, headers, true);
-        },
+        .flexilib => |ctx| return Headers.init(allocator, &ctx.request.headers, false),
         .none => return headersWithoutContext(allocator),
     }
 }
@@ -164,8 +152,9 @@ test "can get headers" {
     // leaks. There doesn't seem to be a way to ignore leak detection
     if (@import("builtin").os.tag == .wasi) return error.SkipZigTest;
     const allocator = std.testing.allocator;
+    var response = universal_lambda.Response.init(allocator);
     const context = universal_lambda.Context{
-        .none = {},
+        .none = &response,
     };
     var headers = try allHeaders(allocator, context);
     defer headers.deinit();

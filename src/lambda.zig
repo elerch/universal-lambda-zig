@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 
 const HandlerFn = @import("universal_lambda.zig").HandlerFn;
 const Context = @import("universal_lambda.zig").Context;
+const UniversalLambdaResponse = @import("universal_lambda.zig").Response;
 
 const log = std.log.scoped(.lambda);
 
@@ -20,7 +21,7 @@ pub fn deinit() void {
 /// If an allocator is not provided, an approrpriate allocator will be selected and used
 /// This function is intended to loop infinitely. If not used in this manner,
 /// make sure to call the deinit() function
-pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void { // TODO: remove inferred error set?
+pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !u8 { // TODO: remove inferred error set?
     const lambda_runtime_uri = std.os.getenv("AWS_LAMBDA_RUNTIME_API") orelse test_lambda_runtime_uri.?;
     // TODO: If this is null, go into single use command line mode
 
@@ -70,15 +71,20 @@ pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void { // T
         // Lambda does not have context, just environment variables. API Gateway
         // might be configured to pass in lots of context, but this comes through
         // event data, not context.
-        const event_response = event_handler(req_allocator, event.event_data, .{ .none = {} }) catch |err| {
+        var response = UniversalLambdaResponse.init(allocator.?);
+        response.output_file = std.io.getStdOut();
+        const event_response = event_handler(req_allocator, event.event_data, .{ .none = &response }) catch |err| {
+            response.finish() catch unreachable;
             event.reportError(@errorReturnTrace(), err, lambda_runtime_uri) catch unreachable;
             continue;
         };
+        response.finish() catch unreachable;
         event.postResponse(lambda_runtime_uri, event_response) catch |err| {
             event.reportError(@errorReturnTrace(), err, lambda_runtime_uri) catch unreachable;
             continue;
         };
     }
+    return 0;
 }
 
 const Event = struct {
@@ -409,10 +415,13 @@ fn handler(allocator: std.mem.Allocator, event_data: []const u8, context: Contex
     _ = context;
     return event_data;
 }
+fn thread_run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void {
+    _ = try run(allocator, event_handler);
+}
 fn test_run(allocator: std.mem.Allocator, event_handler: HandlerFn) !std.Thread {
     return try std.Thread.spawn(
         .{},
-        run,
+        thread_run,
         .{ allocator, event_handler },
     );
 }

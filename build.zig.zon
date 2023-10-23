@@ -4,8 +4,8 @@
 
     .dependencies = .{
         .flexilib = .{
-            .url = "https://git.lerch.org/lobo/flexilib/archive/c44ad2ba84df735421bef23a2ad612968fb50f06.tar.gz",
-            .hash = "122051fdfeefdd75653d3dd678c8aa297150c2893f5fad0728e0d953481383690dbc",
+            .url = "https://git.lerch.org/lobo/flexilib/archive/3d3dab9c792651477932e2b61c9f4794ac694dcb.tar.gz",
+            .hash = "1220fd7a614fe3c9f6006b630bba528e2ec9dca9c66f5ff10f7e471ad2bdd41b6c89",
         },
     },
 }

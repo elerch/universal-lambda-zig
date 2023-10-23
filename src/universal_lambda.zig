@@ -5,22 +5,56 @@ pub const HandlerFn = *const fn (std.mem.Allocator, []const u8, Context) anyerro
 
 const log = std.log.scoped(.universal_lambda);
 
-const FakeResponse = struct {
+pub const Response = struct {
+    allocator: std.mem.Allocator,
+    headers: std.http.Headers,
+    output_file: ?std.fs.File = null,
+    status: std.http.Status = .ok,
+    reason: ?[]const u8 = null,
     request: struct {
         target: []const u8,
         headers: std.http.Headers,
     },
+    al: std.ArrayList(u8),
+
+    pub fn init(allocator: std.mem.Allocator) Response {
+        return .{
+            .allocator = allocator,
+            .headers = .{ .allocator = allocator },
+            .request = .{
+                .target = "/",
+                .headers = .{ .allocator = allocator },
+            },
+            .al = std.ArrayList(u8).init(allocator),
+        };
+    }
+    pub fn write(res: *Response, bytes: []const u8) !usize {
+        return res.al.writer().write(bytes);
+    }
+
+    pub fn writeAll(res: *Response, bytes: []const u8) !void {
+        return res.al.writer().writeAll(bytes);
+    }
+
+    pub fn writer(res: *Response) std.io.Writer {
+        return res.al.writer().writer();
+    }
+
+    pub fn finish(res: *Response) !void {
+        if (res.output_file) |f| {
+            try f.writer().writeAll(res.al.items);
+        }
+        res.al.deinit();
+    }
 };
+
 pub const Context = union(enum) {
     web_request: switch (build_options.build_type) {
-        .exe_run, .cloudflare => *FakeResponse,
+        .exe_run, .cloudflare => *Response,
         else => *std.http.Server.Response,
     },
-    flexilib: struct {
-        request: flexilib.ZigRequest,
-        response: flexilib.ZigResponse,
-    },
-    none: void,
+    flexilib: *flexilib.ZigResponse,
+    none: *Response,
 };
 
 const runFn = blk: {
@@ -42,11 +76,11 @@ fn deinit() void {
 /// If an allocator is not provided, an approrpriate allocator will be selected and used
 /// This function is intended to loop infinitely. If not used in this manner,
 /// make sure to call the deinit() function
-pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void { // TODO: remove inferred error set?
-    try runFn(allocator, event_handler);
+pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !u8 { // TODO: remove inferred error set?
+    return try runFn(allocator, event_handler);
 }
 
-fn runExe(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void {
+fn runExe(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !u8 {
     var arena = std.heap.ArenaAllocator.init(allocator orelse std.heap.page_allocator);
     defer arena.deinit();
 
@@ -56,14 +90,30 @@ fn runExe(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void {
     // We're setting up an arena allocator. While we could use a gpa and get
     // some additional safety, this is now "production" runtime, and those
     // things are better handled by unit tests
-    const writer = std.io.getStdOut().writer();
-    try writer.writeAll(try event_handler(aa, data, .{ .none = {} }));
+    var response = Response.init(aa);
+
+    // Note here we are throwing out the status and reason. This is to make
+    // the console experience less "webby" and more "consoly", at the potential
+    // cost of data loss for not outputting the http status/reason
+    const output = event_handler(aa, data, .{ .none = &response }) catch |err| {
+        response.output_file = std.io.getStdErr();
+        try response.finish();
+        return err;
+    };
+
+    response.output_file = if (response.status.class() == .success) std.io.getStdOut() else std.io.getStdErr();
+    const writer = response.output_file.?.writer();
+    try response.finish();
+    try writer.writeAll(output);
     try writer.writeAll("\n");
+    // We might have gotten an error message managed directly by the event handler
+    // If that's the case, we will need to report back an error code
+    return if (response.status.class() == .success) 0 else 1;
 }
 
 /// Will create a web server and marshall all requests back to our event handler
 /// To keep things simple, we'll have this on a single thread, at least for now
-fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !void {
+fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !u8 {
     const alloc = allocator orelse std.heap.page_allocator;
 
     var arena = std.heap.ArenaAllocator.init(alloc);
@@ -98,6 +148,7 @@ fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: HandlerFn) 
             }
         };
     }
+    return 0;
 }
 
 fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler: HandlerFn) !void {
