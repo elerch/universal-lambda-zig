@@ -82,10 +82,10 @@ follow this signature:
 pub fn handler(allocator: std.mem.Allocator, event_data: []const u8, context: universal_lambda.Context) ![]const u8
 ```
 
-Let the package know about your handler in your main function, like so:
+Your main function should return `!u8`. Let the package know about your handler in your main function, like so:
 
 ```zig
-try universal_lambda.run(null, handler);
+return try universal_lambda.run(null, handler);
 ```
 
 The first parameter above is an allocator. If you have a specific handler you
