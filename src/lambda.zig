@@ -71,7 +71,7 @@ pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !u8 { // TOD
         // Lambda does not have context, just environment variables. API Gateway
         // might be configured to pass in lots of context, but this comes through
         // event data, not context.
-        var response = UniversalLambdaResponse.init(allocator.?);
+        var response = UniversalLambdaResponse.init(req_allocator);
         response.output_file = std.io.getStdOut();
         const event_response = event_handler(req_allocator, event.event_data, .{ .none = &response }) catch |err| {
             response.finish() catch unreachable;
