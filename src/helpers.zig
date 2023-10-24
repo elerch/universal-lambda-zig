@@ -26,6 +26,42 @@ pub fn findTarget(allocator: std.mem.Allocator, context: universal_lambda.Contex
     }
 }
 
+pub fn setStatus(context: universal_lambda.Context, status: std.http.Status, reason: ?[]const u8) void {
+    switch (context) {
+        .web_request => |res| {
+            res.status = status;
+            res.reason = reason;
+        },
+        .flexilib => |res| {
+            res.status = status;
+            res.reason = reason;
+        },
+        .none => |res| {
+            res.status = status;
+            res.reason = reason;
+        },
+    }
+}
+pub fn writeAll(context: universal_lambda.Context, data: []const u8) !void {
+    switch (context) {
+        .web_request => |res| return try res.writeAll(data),
+        .flexilib => |res| return try res.writeAll(data),
+        .none => |res| return try res.writeAll(data),
+    }
+}
+fn writeFn(context: universal_lambda.Context, data: []const u8) WriteError!usize {
+    switch (context) {
+        .web_request => |res| return res.write(data),
+        .flexilib => |res| return res.write(data),
+        .none => |res| return res.write(data),
+    }
+}
+pub const WriteError = error{OutOfMemory};
+
+pub fn writer(context: universal_lambda.Context) std.io.Writer(universal_lambda.Context, WriteError, writeFn) {
+    return .{ .context = context };
+}
+
 fn findTargetWithoutContext(allocator: std.mem.Allocator) ![]const u8 {
     // without context, we have environment variables (but for this, I think not),
     // possibly event data (API Gateway does this if so configured),
@@ -174,4 +210,14 @@ test "can get headers" {
     var headers = try allHeaders(allocator, context);
     defer headers.deinit();
     try std.testing.expect(headers.http_headers.list.items.len > 0);
+}
+test "can write" {
+    const allocator = std.testing.allocator;
+    var response = universal_lambda.Response.init(allocator);
+    const context = universal_lambda.Context{
+        .none = &response,
+    };
+    const my_writer = writer(context);
+    try my_writer.writeAll("hello");
+    try response.finish();
 }
