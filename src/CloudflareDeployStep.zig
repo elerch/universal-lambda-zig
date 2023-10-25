@@ -55,6 +55,19 @@ fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) !void {
 
     var client = std.http.Client{ .allocator = b.allocator };
     defer client.deinit();
+    var proxy_text = std.os.getenv("https_proxy") orelse std.os.getenv("HTTPS_PROXY");
+    if (proxy_text) |p| {
+        client.deinit();
+        const proxy = try std.Uri.parse(p);
+        client = std.http.Client{
+            .allocator = b.allocator,
+            .proxy = .{
+                .protocol = if (std.ascii.eqlIgnoreCase(proxy.scheme, "http")) .plain else .tls,
+                .host = proxy.host.?,
+                .port = proxy.port,
+            },
+        };
+    }
 
     const script = self.options.primary_file_data orelse
         try std.fs.cwd().readFileAlloc(b.allocator, self.primary_javascript_file.path, std.math.maxInt(usize));

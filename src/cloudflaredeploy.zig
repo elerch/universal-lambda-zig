@@ -13,13 +13,19 @@ pub fn main() !u8 {
     const allocator = arena.allocator();
     var client = std.http.Client{ .allocator = allocator };
     defer client.deinit();
-    //     .allocator = allocator,
-    //     .proxy = .{
-    //         .protocol = .plain,
-    //         .host = "localhost",
-    //         .port = 8080,
-    //     },
-    // };
+    var proxy_text = std.os.getenv("https_proxy") orelse std.os.getenv("HTTPS_PROXY");
+    if (proxy_text) |p| {
+        client.deinit();
+        const proxy = try std.Uri.parse(p);
+        client = std.http.Client{
+            .allocator = allocator,
+            .proxy = .{
+                .protocol = if (std.ascii.eqlIgnoreCase(proxy.scheme, "http")) .plain else .tls,
+                .host = proxy.host.?,
+                .port = proxy.port,
+            },
+        };
+    }
 
     const stdout_file = std.io.getStdOut().writer();
     var bw = std.io.bufferedWriter(stdout_file);
