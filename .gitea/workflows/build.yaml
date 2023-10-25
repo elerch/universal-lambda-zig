@@ -27,6 +27,7 @@ jobs:
       - run: zig build test -Dtarget=arm-linux # we want to know we can build for 32 bit 
       # - run: PATH=${HOME}/.wasmtime/bin:${PATH} zig build test -Dtarget=wasm32-wasi -fwasmtime # downstream needs this for CF workers
       - run: zig build test -Dtarget=wasm32-wasi # downstream needs this for CF workers
+      # - run: zig build test -Dx86_64-windows # windows needs changes for env vars
       - name: Notify
         uses: https://git.lerch.org/lobo/action-notify-ntfy@v2
         if: always()
