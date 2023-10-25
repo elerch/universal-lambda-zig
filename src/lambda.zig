@@ -1,9 +1,10 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const HandlerFn = @import("universal_lambda.zig").HandlerFn;
-const Context = @import("universal_lambda.zig").Context;
-const UniversalLambdaResponse = @import("universal_lambda.zig").Response;
+const universal_lambda_interface = @import("universal_lambda_interface");
+const HandlerFn = universal_lambda_interface.HandlerFn;
+const Context = universal_lambda_interface.Context;
+const UniversalLambdaResponse = universal_lambda_interface.Response;
 
 const log = std.log.scoped(.lambda);
 
@@ -70,15 +71,23 @@ pub fn run(allocator: ?std.mem.Allocator, event_handler: HandlerFn) !u8 { // TOD
         defer ev.?.deinit();
         // Lambda does not have context, just environment variables. API Gateway
         // might be configured to pass in lots of context, but this comes through
-        // event data, not context.
+        // event data, not context. In this case, we lose:
+        //
+        // request headers
+        // request method
+        // request target
         var response = UniversalLambdaResponse.init(req_allocator);
-        response.output_file = std.io.getStdOut();
-        const event_response = event_handler(req_allocator, event.event_data, .{ .none = &response }) catch |err| {
-            response.finish() catch unreachable;
+        defer response.deinit();
+        const body_writer = std.io.getStdOut();
+        const event_response = event_handler(req_allocator, event.event_data, &response) catch |err| {
+            body_writer.writeAll(response.body.items) catch unreachable;
             event.reportError(@errorReturnTrace(), err, lambda_runtime_uri) catch unreachable;
             continue;
         };
-        response.finish() catch unreachable;
+        // No error during handler. Write anything sent to body to stdout instead
+        // I'm not totally sure this is the right behavior as it is a little inconsistent
+        // (flexilib and console both write to the same io stream as the main output)
+        body_writer.writeAll(response.body.items) catch unreachable;
         event.postResponse(lambda_runtime_uri, event_response) catch |err| {
             event.reportError(@errorReturnTrace(), err, lambda_runtime_uri) catch unreachable;
             continue;

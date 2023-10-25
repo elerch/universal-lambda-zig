@@ -62,24 +62,33 @@ try configureUniversalLambdaBuild(b, exe);
 ```
 
 This will provide most of the magic functionality of the package, including
-several new build steps to manage the system, and a new import to be used.
+several new build steps to manage the system, and a new import to be used. For
+testing, it is also advisable to add the modules to your tests by adding a line
+like so:
+
+```zig
+_ = try universal_lambda.addModules(b, main_tests);
+```
 
 **main.zig**
 
-The build changes above will add a module called 'universal_lambda_handler'.
-Add an import:
+The build changes above will add several modules:
+
+* universal_lambda_handler: Main import, used to register your handler
+* universal_lambda_interface: Contains the context type used in the handler function
+* flexilib-interface: Used as a dependency of the handler. Not normally needed
+
+Add imports for the handler registration and interface:
 
 ```zig
 const universal_lambda = @import("universal_lambda_handler");
+const universal_lambda_interface = @import("universal_lambda_interface");
 ```
 
-Add a handler to be executed. **This must be public, and named 'handler'**.
-If you don't want to do that, name it whatever you want, and provide a public
-const, e.g. `pub const handler=myActualFunctionName`. The handler must
-follow this signature:
+Add a handler to be executed. The handler must follow this signature:
 
 ```zig
-pub fn handler(allocator: std.mem.Allocator, event_data: []const u8, context: universal_lambda.Context) ![]const u8
+pub fn handler(allocator: std.mem.Allocator, event_data: []const u8, context: universal_lambda_interface.Context) ![]const u8
 ```
 
 Your main function should return `!u8`. Let the package know about your handler in your main function, like so:
@@ -93,11 +102,7 @@ would like to use, you may specify it. Otherwise, an appropriate allocator
 will be created and used. Currently this is an ArenaAllocator wrapped around
 an appropriate base allocator, so your handler does not require deallocation.
 
-Note that for `flexilib` builds, the main function is ignored and the handler
-is called directly. This is unique to flexilib.
-
 A fully working example of usage is at https://git.lerch.org/lobo/universal-lambda-example/.
-
 
 Usage - Building
 ----------------
@@ -134,9 +139,8 @@ as a standalone web server.
 Limitations
 -----------
 
-This is currently a minimal viable product. The biggest current limitation
-is that context is not currently implemented. This is important to see
-command line arguments, http headers and the like.
+Limitations include standalone web server port customization and linux/aws cli requirements for Linux.
 
-Other limitations include standalone web server port customization, main
-function not called under flexilib, and linux/aws cli requirements for Linux.
+Also, within the context, AWS Lambda is unable to provide proper method, target,
+and headers for the request. This may be important for routing purposes. Suggestion
+here is to use API Gateway and pass these parameters through the event_data content.

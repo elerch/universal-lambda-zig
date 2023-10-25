@@ -16,17 +16,25 @@ pub var module_root: ?[]const u8 = null;
 
 pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     const function_name = b.option([]const u8, "function-name", "Function name for Lambda [zig-fn]") orelse "zig-fn";
+
+    const file_location = addModules(b, cs);
+
+    // Add steps
+    try @import("lambda_build.zig").configureBuild(b, cs, function_name);
+    try @import("cloudflare_build.zig").configureBuild(b, cs, function_name);
+    try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
+    try @import("standalone_server_build.zig").configureBuild(b, cs);
+}
+
+/// Add modules
+///
+/// We will create the following modules for downstream consumption:
+///
+/// * build_options
+/// * flexilib-interface
+/// * universal_lambda_handler
+pub fn addModules(b: *std.Build, cs: *std.Build.Step.Compile) ![]const u8 {
     const file_location = try findFileLocation(b);
-    /////////////////////////////////////////////////////////////////////////
-    // Add modules
-    //
-    // We will create the following modules for downstream consumption:
-    //
-    // * build_options
-    // * flexilib-interface
-    // * universal_lambda_handler
-    //
-    /////////////////////////////////////////////////////////////////////////
     const options_module = try createOptionsModule(b, cs);
 
     // We need to add the interface module here as well, so universal_lambda.zig
@@ -43,6 +51,11 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     const flexilib_module = flexilib_dep.module("flexilib-interface");
     // Make the interface available for consumption
     cs.addModule("flexilib-interface", flexilib_module);
+    cs.addAnonymousModule("universal_lambda_interface", .{
+        .source_file = .{ .path = b.pathJoin(&[_][]const u8{ file_location, "interface.zig" }) },
+        // We alsso need the interface module available here
+        .dependencies = &[_]std.Build.ModuleDependency{},
+    });
     // Add module
     cs.addAnonymousModule("universal_lambda_handler", .{
         // Source file can be anywhere on disk, does not need to be a subdirectory
@@ -59,36 +72,13 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
                 .name = "flexilib-interface",
                 .module = flexilib_module,
             },
-        },
-    });
-
-    cs.addAnonymousModule("universal_lambda_helpers", .{
-        // Source file can be anywhere on disk, does not need to be a subdirectory
-        .source_file = .{ .path = b.pathJoin(&[_][]const u8{ file_location, "helpers.zig" }) },
-        // We alsso need the interface module available here
-        .dependencies = &[_]std.Build.ModuleDependency{
-            // Add options module so we can let our universal_lambda know what
-            // type of interface is necessary
             .{
-                .name = "build_options",
-                .module = options_module,
-            },
-            .{
-                .name = "flexilib-interface",
-                .module = flexilib_module,
-            },
-            .{
-                .name = "universal_lambda_handler",
-                .module = cs.modules.get("universal_lambda_handler").?,
+                .name = "universal_lambda_interface",
+                .module = cs.modules.get("universal_lambda_interface").?,
             },
         },
     });
-
-    // Add steps
-    try @import("lambda_build.zig").configureBuild(b, cs, function_name);
-    try @import("cloudflare_build.zig").configureBuild(b, cs, function_name);
-    try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
-    try @import("standalone_server_build.zig").configureBuild(b, cs);
+    return file_location;
 }
 
 /// This function relies on internal implementation of the build runner
@@ -116,7 +106,11 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
 /// to pull from a download location and update hashes every time we change
 fn findFileLocation(b: *std.Build) ![]const u8 {
     if (module_root) |r| return b.pathJoin(&[_][]const u8{ r, "src" });
-    const build_root = b.option([]const u8, "universal_lambda_build_root", "Build root for universal lambda (development of universal lambda only)");
+    const build_root = b.option(
+        []const u8,
+        "universal_lambda_build_root",
+        "Build root for universal lambda (development of universal lambda only)",
+    );
     if (build_root) |br| {
         return b.pathJoin(&[_][]const u8{ br, "src" });
     }

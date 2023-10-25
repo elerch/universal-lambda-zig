@@ -1,10 +1,11 @@
 const std = @import("std");
 const interface = @import("flexilib-interface");
+const universal_lambda_interface = @import("universal_lambda_interface");
 const testing = std.testing;
 
 const log = std.log.scoped(.@"main-lib");
 
-const client_handler = @import("flexilib_handler");
+const Application = if (@import("builtin").is_test) @This() else @import("flexilib_handler");
 
 // The main program will look for exports during the request lifecycle:
 // zigInit (optional): called at the beginning of a request, includes pointer to an allocator
@@ -63,13 +64,57 @@ fn handleRequest(allocator: std.mem.Allocator, response: *interface.ZigResponse)
     // setup
     var response_writer = response.body.writer();
     // dispatch to our actual handler
-    try response_writer.writeAll(try client_handler.handler(
+    if (handler == null) _ = try Application.main();
+    std.debug.assert(handler != null);
+    // setup response
+    var ul_response = universal_lambda_interface.Response.init(allocator);
+    defer ul_response.deinit();
+    ul_response.request.target = response.request.target;
+    ul_response.request.headers = response.request.headers;
+    ul_response.request.method = std.meta.stringToEnum(std.http.Method, response.request.method) orelse std.http.Method.GET;
+    const response_content = try handler.?(
         allocator,
         response.request.content,
-        .{
-            .flexilib = response,
-        },
-    ));
+        &ul_response,
+    );
+    // Copy any headers
+    for (ul_response.headers.list.items) |entry| {
+        try response.headers.append(entry.name, entry.value);
+    }
+    // Anything manually written goes first
+    try response_writer.writeAll(ul_response.body.items);
+    // Now we right the official body (response from handler)
+    try response_writer.writeAll(response_content);
+}
+
+pub fn run(allocator: ?std.mem.Allocator, event_handler: universal_lambda_interface.HandlerFn) !u8 {
+    _ = allocator;
+    register(event_handler);
+    return 0;
+}
+
+var handler: ?universal_lambda_interface.HandlerFn = null;
+/// Registers a handler function with flexilib
+pub fn register(h: universal_lambda_interface.HandlerFn) void {
+    handler = h;
+}
+pub fn main() !u8 {
+    // should only be called under test!
+    // Flexilib runs under a DLL. So the plan is:
+    // 1. dll calls handle_request
+    // 2. handle_request discovers, through build, where it came from
+    // 3. handle_request calls main
+    // 4. main, in the application, calls run, thinking it's a console app
+    // 5. run, calls back to universal lambda, which then calls back here to register
+    // 6. register, registers the handler. It will need to be up to main() to recognize
+    //    build_options and look for flexilib if they're doing something fancy
+    register(testHandler);
+    return 0;
+}
+fn testHandler(allocator: std.mem.Allocator, event_data: []const u8, context: @import("universal_lambda_interface").Context) ![]const u8 {
+    try context.headers.append("X-custom-foo", "bar");
+    try context.writeAll(event_data);
+    return std.fmt.allocPrint(allocator, "{d}", .{context.request.headers.list.items.len});
 }
 // Need to figure out how tests would work
 test "handle_request" {
@@ -86,13 +131,16 @@ test "handle_request" {
     var req = interface.Request{
         .method = @ptrCast(@constCast("GET".ptr)),
         .method_len = 3,
-        .content = @ptrCast(@constCast("GET".ptr)),
-        .content_len = 3,
+        .content = @ptrCast(@constCast(" ".ptr)),
+        .content_len = 1,
         .headers = headers.ptr,
         .headers_len = 1,
+        .target = @ptrCast(@constCast("/".ptr)),
+        .target_len = 1,
     };
     const response = handle_request(&req).?;
     try testing.expectEqualStrings(" 1", response.ptr[0..response.len]);
+    try testing.expectEqual(@as(usize, 1), response.headers_len);
     try testing.expectEqualStrings("X-custom-foo", response.headers[0].name_ptr[0..response.headers[0].name_len]);
     try testing.expectEqualStrings("bar", response.headers[0].value_ptr[0..response.headers[0].value_len]);
 }
