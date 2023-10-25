@@ -367,5 +367,5 @@ fn addAuthHeaders(headers: *std.http.Headers) !void {
         try headers.append("X-Auth-Email", email);
         try headers.append("X-Auth-Key", x_auth_key.?);
     }
-    return error.NoCfAuthenticationEnvironmentVariablesSet;
+    return error.NoCloudflareAuthenticationEnvironmentVariablesSet;
 }
