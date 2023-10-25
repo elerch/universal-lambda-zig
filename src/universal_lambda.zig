@@ -85,8 +85,23 @@ fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler
         try aa.dupe(u8, "");
     // no need to free - will be handled by arena
 
-    response_bytes = event_handler(aa, body, .{ .web_request = &res }) catch |e| brk: {
-        if (res.status.class() == .success) res.status = .internal_server_error;
+    var response = interface.Response.init(aa);
+    defer response.deinit();
+    response.request.headers = res.request.headers;
+    response.request.headers_owned = false;
+    response.request.target = res.request.target;
+    response.request.method = res.request.method;
+    response.headers = res.headers;
+    response.headers_owned = false;
+
+    response_bytes = event_handler(aa, body, &response) catch |e| brk: {
+        res.status = response.status;
+        res.reason = response.reason;
+        if (res.status.class() == .success) {
+            res.status = .internal_server_error;
+            res.reason = null;
+        }
+        // TODO: stream body to client? or keep internal?
         // TODO: more about this particular request
         log.err("Unexpected error from executor processing request: {any}", .{e});
         if (@errorReturnTrace()) |trace| {
@@ -97,6 +112,7 @@ fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler
     res.transfer_encoding = .{ .content_length = response_bytes.len };
 
     try res.do();
+    _ = try res.writer().writeAll(response.body.items);
     _ = try res.writer().writeAll(response_bytes);
     try res.finish();
 }
