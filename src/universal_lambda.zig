@@ -116,3 +116,58 @@ test {
 
     // TODO: Do we want build files here too?
 }
+
+fn testRequest(request_bytes: []const u8, event_handler: interface.HandlerFn) !void {
+    const allocator = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+
+    var server = std.http.Server.init(allocator, .{ .reuse_address = true });
+    defer server.deinit();
+
+    const address = try std.net.Address.parseIp("127.0.0.1", 0);
+    try server.listen(address);
+    const server_port = server.socket.listen_address.in.getPort();
+
+    var al = std.ArrayList(u8).init(allocator);
+    defer al.deinit();
+    var writer = al.writer();
+    _ = writer;
+    var aa = arena.allocator();
+    var bytes_allocated: usize = 0;
+    // pre-warm
+    const server_thread = try std.Thread.spawn(
+        .{},
+        processRequest,
+        .{ aa, &server, event_handler },
+    );
+
+    const stream = try std.net.tcpConnectToHost(allocator, "127.0.0.1", server_port);
+    defer stream.close();
+    _ = try stream.writeAll(request_bytes[0..]);
+
+    server_thread.join();
+    log.debug("Bytes allocated during request: {d}", .{arena.queryCapacity() - bytes_allocated});
+    log.debug("Stdout: {s}", .{al.items});
+}
+
+fn testGet(comptime path: []const u8, event_handler: interface.HandlerFn) !void {
+    try testRequest("GET " ++ path ++ " HTTP/1.1\r\n" ++
+        "Accept: */*\r\n" ++
+        "\r\n", event_handler);
+}
+test "can make a request" {
+    if (@import("builtin").os.tag == .wasi) return error.SkipZigTest;
+    const HandlerClosure = struct {
+        var data_received: []const u8 = undefined;
+        var context_received: interface.Context = undefined;
+        const Self = @This();
+        pub fn handler(allocator: std.mem.Allocator, event_data: []const u8, context: interface.Context) ![]const u8 {
+            _ = allocator;
+            data_received = event_data;
+            context_received = context;
+            return "success";
+        }
+    };
+    try testGet("/", HandlerClosure.handler);
+}
