@@ -23,7 +23,7 @@ pub fn run(allocator: ?std.mem.Allocator, event_handler: interface.HandlerFn) !u
     const data = if (is_test)
         test_content
     else
-        std.io.getStdIn().reader().readAllAlloc(aa, std.math.maxInt(usize));
+        try std.io.getStdIn().reader().readAllAlloc(aa, std.math.maxInt(usize));
     // We're setting up an arena allocator. While we could use a gpa and get
     // some additional safety, this is now "production" runtime, and those
     // things are better handled by unit tests
@@ -173,7 +173,7 @@ pub fn findHeaders(allocator: std.mem.Allocator) !Headers {
     // or the command line. For headers, we'll prioritize command line options
     // with a fallback to environment variables
     const is_test = @import("builtin").is_test;
-    var argIterator = if (is_test) test_args.iterator(0) else std.process.argsWithAllocator(allocator);
+    var argIterator = if (is_test) test_args.iterator(0) else try std.process.argsWithAllocator(allocator);
     _ = argIterator.next();
     var is_header_option = false;
     while (argIterator.next()) |a| {

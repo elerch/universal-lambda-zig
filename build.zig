@@ -57,5 +57,5 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     try @import("src/universal_lambda_build.zig").configureBuild(b, cs);
 }
 pub fn addModules(b: *std.Build, cs: *std.Build.Step.Compile) ![]const u8 {
-    try @import("src/universal_lambda_build.zig").addModules(b, cs);
+    return try @import("src/universal_lambda_build.zig").addModules(b, cs);
 }

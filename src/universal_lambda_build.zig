@@ -17,7 +17,7 @@ pub var module_root: ?[]const u8 = null;
 pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     const function_name = b.option([]const u8, "function-name", "Function name for Lambda [zig-fn]") orelse "zig-fn";
 
-    const file_location = addModules(b, cs);
+    const file_location = try addModules(b, cs);
 
     // Add steps
     try @import("lambda_build.zig").configureBuild(b, cs, function_name);
