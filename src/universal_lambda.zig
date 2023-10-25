@@ -78,9 +78,8 @@ fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler
     @memcpy(&errbuf, errstr);
     var response_bytes: []const u8 = errbuf[0..];
 
-    var body =
-        if (res.request.content_length) |l|
-        try res.reader().readAllAlloc(aa, @as(usize, l))
+    var body = if (res.request.content_length) |l|
+        try res.reader().readAllAlloc(aa, @as(usize, @intCast(l)))
     else
         try aa.dupe(u8, "");
     // no need to free - will be handled by arena
