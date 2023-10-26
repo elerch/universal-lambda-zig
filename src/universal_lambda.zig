@@ -52,7 +52,7 @@ fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: inter
     const stdout = std.io.getStdOut();
     const stderr = std.io.getStdErr();
     while (true) {
-        var cp = std.ChildProcess.init(al.items, aa);
+        var cp = std.ChildProcess.init(al.items, alloc);
         cp.stdin = stdin;
         cp.stdout = stdout;
         cp.stderr = stderr;
