@@ -8,7 +8,7 @@ const log = std.log.scoped(.universal_lambda);
 const runFn = blk: {
     switch (build_options.build_type) {
         .awslambda => break :blk @import("lambda.zig").run,
-        .standalone_server => break :blk runStandaloneServer,
+        .standalone_server => break :blk runStandaloneServerParent,
         .flexilib => break :blk @import("flexilib.zig").run,
         .exe_run, .cloudflare => break :blk @import("console.zig").run,
     }
@@ -22,6 +22,39 @@ const runFn = blk: {
 /// make sure to call the deinit() function
 pub fn run(allocator: ?std.mem.Allocator, event_handler: interface.HandlerFn) !u8 { // TODO: remove inferred error set?
     return try runFn(allocator, event_handler);
+}
+
+/// We need to create a child process to be able to deal with panics appropriately
+fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: interface.HandlerFn) !u8 {
+    const alloc = allocator orelse std.heap.page_allocator;
+
+    var arena = std.heap.ArenaAllocator.init(alloc);
+    defer arena.deinit();
+
+    var aa = arena.allocator();
+    var al = std.ArrayList([]const u8).init(aa);
+    defer al.deinit();
+    var argi = std.process.args();
+    // We do this first so it shows more prominently when looking at processes
+    // Also it will be slightly faster for whatever that is worth
+    const child_arg = "--child_of_standalone_server";
+    try al.append(child_arg);
+    while (argi.next()) |a| {
+        if (std.mem.eql(u8, child_arg, a)) {
+            // This should never actually return
+            return try runStandaloneServer(allocator, event_handler);
+        }
+        try al.append(a);
+    }
+    // Parent
+    var cp = std.ChildProcess.init(al.items, aa);
+    cp.stdin = std.io.getStdIn();
+    cp.stdout = std.io.getStdOut();
+    cp.stderr = std.io.getStdErr();
+    while (true) {
+        _ = try cp.spawnAndWait();
+        try cp.stderr.?.writeAll("Caught abnormal process termination, relaunching server");
+    }
 }
 
 /// Will create a web server and marshall all requests back to our event handler
