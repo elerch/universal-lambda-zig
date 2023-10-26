@@ -38,6 +38,7 @@ fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: inter
     // We do this first so it shows more prominently when looking at processes
     // Also it will be slightly faster for whatever that is worth
     const child_arg = "--child_of_standalone_server";
+    if (argi.next()) |a| try al.append(a);
     try al.append(child_arg);
     while (argi.next()) |a| {
         if (std.mem.eql(u8, child_arg, a)) {
