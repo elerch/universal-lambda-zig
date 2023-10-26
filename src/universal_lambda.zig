@@ -48,13 +48,16 @@ fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: inter
         try al.append(a);
     }
     // Parent
-    var cp = std.ChildProcess.init(al.items, aa);
-    cp.stdin = std.io.getStdIn();
-    cp.stdout = std.io.getStdOut();
-    cp.stderr = std.io.getStdErr();
+    const stdin = std.io.getStdIn();
+    const stdout = std.io.getStdOut();
+    const stderr = std.io.getStdErr();
     while (true) {
+        var cp = std.ChildProcess.init(al.items, aa);
+        cp.stdin = stdin;
+        cp.stdout = stdout;
+        cp.stderr = stderr;
         _ = try cp.spawnAndWait();
-        try cp.stderr.?.writeAll("Caught abnormal process termination, relaunching server");
+        try stderr.writeAll("Caught abnormal process termination, relaunching server");
     }
 }
 
