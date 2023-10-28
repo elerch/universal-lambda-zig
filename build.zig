@@ -32,25 +32,40 @@ pub fn build(b: *std.Build) !void {
     // running `zig build`).
     b.installArtifact(lib);
 
-    // Creates a step for unit testing. This only builds the test executable
+    // Creates steps for unit testing. This only builds the test executable
     // but does not run it.
-    const main_tests = b.addTest(.{
+    const exe_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/test.zig" },
         .target = target,
         .optimize = optimize,
     });
-    _ = try universal_lambda.addModules(b, main_tests);
-    // _ = try ulb.createOptionsModule(b, main_tests);
+    _ = try universal_lambda.addModules(b, exe_tests);
 
-    // main_tests.addModule("flexilib-interface", flexilib_module);
-    var run_main_tests = b.addRunArtifact(main_tests);
-    run_main_tests.skip_foreign_checks = true;
+    var run_exe_tests = b.addRunArtifact(exe_tests);
+    run_exe_tests.skip_foreign_checks = true;
 
+    // Universal lambda can end up as an exe or a lib. When it is a library,
+    // we end up changing the root source file away from downstream so we can
+    // control exports and such. This is just flexilib for now, but we could
+    // end up in a situation where we need to create an array of libraries
+    // with various roots that all meet the rest of the build DAG at test_step
+    // in the future. Scaleway, for instance, is another system that works
+    // via shared library
+    const lib_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/flexilib.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    _ = try universal_lambda.addModules(b, lib_tests);
+
+    var run_lib_tests = b.addRunArtifact(lib_tests);
+    run_lib_tests.skip_foreign_checks = true;
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build test`
     // This will evaluate the `test` step rather than the default, which is "install".
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&run_main_tests.step);
+    test_step.dependOn(&run_exe_tests.step);
+    test_step.dependOn(&run_lib_tests.step);
 }
 
 pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {

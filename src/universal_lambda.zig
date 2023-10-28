@@ -162,7 +162,18 @@ test {
         std.testing.refAllDecls(@import("CloudflareDeployStep.zig"));
     }
     std.testing.refAllDecls(@import("console.zig"));
-    std.testing.refAllDecls(@import("flexilib.zig"));
+    // By importing flexilib.zig, this breaks downstream any time someone
+    // tries to build flexilib, because flexilib.zig becomes the root module,
+    // then gets imported here again. It shouldn't be done unless doing
+    // zig build test, but it is. So we need to figure that out at some point...
+    // const root = @import("root");
+    // if (@hasDecl(root, "run") and @hasDecl(root, "register"))
+    //     std.testing.refAllDecls(root)
+    // else
+    //     std.testing.refAllDecls(@import("flexilib.zig"));
+    //
+    // What we need to do here is update our own build.zig to add a specific
+    // test with flexilib as root. That will match the behavior of downstream
 
     // The following do not currently have tests
 
