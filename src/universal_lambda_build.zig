@@ -30,7 +30,7 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
 ///
 /// We will create the following modules for downstream consumption:
 ///
-/// * build_options
+/// * universal_lambda_build_options
 /// * flexilib-interface
 /// * universal_lambda_handler
 pub fn addModules(b: *std.Build, cs: *std.Build.Step.Compile) ![]const u8 {
@@ -65,7 +65,7 @@ pub fn addModules(b: *std.Build, cs: *std.Build.Step.Compile) ![]const u8 {
             // Add options module so we can let our universal_lambda know what
             // type of interface is necessary
             .{
-                .name = "build_options",
+                .name = "universal_lambda_build_options",
                 .module = options_module,
             },
             .{
@@ -139,7 +139,7 @@ fn findFileLocation(b: *std.Build) ![]const u8 {
     return b.pathJoin(&[_][]const u8{ ulb_root, "src" });
 }
 /// Make our target platform visible to runtime through an import
-/// called "build_options". This will also be available to the consuming
+/// called "universal_lambda_build_options". This will also be available to the consuming
 /// executable if needed
 pub fn createOptionsModule(b: *std.Build, cs: *std.Build.Step.Compile) !*std.Build.Module {
     // We need to go through the command line args, look for argument(s)
@@ -152,8 +152,8 @@ pub fn createOptionsModule(b: *std.Build, cs: *std.Build.Step.Compile) !*std.Bui
     defer b.allocator.free(args);
     const options = b.addOptions();
     options.addOption(BuildType, "build_type", findBuildType(args) orelse .exe_run);
-    cs.addOptions("build_options", options);
-    return cs.modules.get("build_options").?;
+    cs.addOptions("universal_lambda_build_options", options);
+    return cs.modules.get("universal_lambda_build_options").?;
 }
 
 fn findBuildType(build_args: [][:0]u8) ?BuildType {

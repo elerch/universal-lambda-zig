@@ -28,8 +28,8 @@ Create a `build.zig.zon` with the following contents:
 
     .dependencies = .{
         .universal_lambda_build = .{
-            .url = "https://git.lerch.org/lobo/universal-lambda-zig/archive/70b0fda03b9c54a6eda8d61cb8ab8b9d9f29b2ef.tar.gz",
-            .hash = "122004f2a4ad253be9b8d7989ca6508af1483d8a593ca7fee93627444b2b37d170d2",
+            .url = "https://git.lerch.org/lobo/universal-lambda-zig/archive/07366606696081f324591b66ab7a9a176a38424c.tar.gz",
+            .hash = "122049daa19f61d778a79ffb82c64775ca5132ee5c4797d7f7d76667ab82593917cd",
         },
         .flexilib = .{
             .url = "https://git.lerch.org/lobo/flexilib/archive/c44ad2ba84df735421bef23a2ad612968fb50f06.tar.gz",
@@ -50,7 +50,7 @@ and/or changes to this library.
 * Add an import at the top:
 
 ```zig
-const configureUniversalLambdaBuild = @import("universal_lambda_build").configureBuild;
+const universal_lambda = @import("universal_lambda_build");
 ```
 
 * Set the return of the build function to return `!void` rather than `void`
@@ -58,7 +58,7 @@ const configureUniversalLambdaBuild = @import("universal_lambda_build").configur
   after adding the exe is fine:
 
 ```zig
-try configureUniversalLambdaBuild(b, exe);
+try universal_lambda.configureBuild(b, exe);
 ```
 
 This will provide most of the magic functionality of the package, including
@@ -84,6 +84,9 @@ Add imports for the handler registration and interface:
 const universal_lambda = @import("universal_lambda_handler");
 const universal_lambda_interface = @import("universal_lambda_interface");
 ```
+
+Another module `universal_lambda_build_options` is available if access to the
+environment is needed. The build type is stored under a `build_type` variable.
 
 Add a handler to be executed. The handler must follow this signature:
 
@@ -144,3 +147,7 @@ Limitations include standalone web server port customization and linux/aws cli r
 Also, within the context, AWS Lambda is unable to provide proper method, target,
 and headers for the request. This may be important for routing purposes. Suggestion
 here is to use API Gateway and pass these parameters through the event_data content.
+
+Lastly, support for specifying multiple targets in the downstream (your) application
+is somewhat spotty. For example, `zig build standalone_server run` works fine.
+However, `zig build test flexilib` is broken.

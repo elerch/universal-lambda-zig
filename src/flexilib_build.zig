@@ -3,9 +3,6 @@ const builtin = @import("builtin");
 
 /// flexilib will create a dynamic library for use with flexilib.
 /// Flexilib will need to get the exe compiled as a library
-/// For flexilib, we will need the main file to have a pub fn named
-/// "handler". If it is not called that, a pub const handler = ... can be
-/// used instead
 pub fn configureBuild(b: *std.build.Builder, cs: *std.Build.Step.Compile, build_root_src: []const u8) !void {
     const package_step = b.step("flexilib", "Create a flexilib dynamic library");
 
@@ -29,6 +26,9 @@ pub fn configureBuild(b: *std.build.Builder, cs: *std.Build.Step.Compile, build_
         };
         lib.addModule(entry.key_ptr.*, entry.value_ptr.*);
     }
+
+    // Add the downstream root source file back into the build as a module
+    // that our new root source file can import
     lib.addAnonymousModule("flexilib_handler", .{
         // Source file can be anywhere on disk, does not need to be a subdirectory
         .source_file = cs.root_src.?,

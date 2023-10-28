@@ -1,5 +1,5 @@
 const std = @import("std");
-const build_options = @import("build_options");
+const build_options = @import("universal_lambda_build_options");
 const flexilib = @import("flexilib-interface");
 const interface = @import("universal_lambda_interface");
 
