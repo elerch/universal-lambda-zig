@@ -9,7 +9,10 @@ const runFn = blk: {
     switch (build_options.build_type) {
         .awslambda => break :blk @import("lambda.zig").run,
         .standalone_server => break :blk runStandaloneServerParent,
-        .flexilib => break :blk @import("flexilib.zig").run,
+        // In the case of flexilib, our root module is actually flexilib.zig
+        // so we need to import that, otherwise we risk the dreaded "file exists
+        // in multiple modules" problem
+        .flexilib => break :blk @import("root").run,
         .exe_run, .cloudflare => break :blk @import("console.zig").run,
     }
 };
