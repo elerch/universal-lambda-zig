@@ -27,8 +27,8 @@ jobs:
       - name: Install wasmtime
         run: curl https://wasmtime.dev/install.sh -sSf | bash
       - name: Run tests
-        run: zig build test
-      # - run: PATH=${HOME}/.wasmtime/bin:${PATH} zig build test -fwasmtime # downstream needs this for CF workers
+        # run: zig build test --summary all
+        run: PATH=${HOME}/.wasmtime/bin:${PATH} zig build test -fwasmtime --summary all # downstream needs this for CF workers
       - name: Notify
         uses: https://git.lerch.org/lobo/action-notify-ntfy@v2
         if: always()
