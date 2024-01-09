@@ -19,15 +19,16 @@ jobs:
       #
       # However, arm64/linux isn't quite fully tier 1 yet, so this is more of a
       # TODO: https://github.com/ziglang/zig/issues/2443
-      - run: wget -q https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz
-      - run: tar x -C /usr/local -f zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz
-      - run: ln -s /usr/local/zig-linux-${ARCH}-${ZIG_VERSION}/zig /usr/local/bin/zig
-      - run: curl https://wasmtime.dev/install.sh -sSf | bash
-      - run: zig build test
-      - run: zig build test -Dtarget=arm-linux # we want to know we can build for 32 bit 
-      # - run: PATH=${HOME}/.wasmtime/bin:${PATH} zig build test -Dtarget=wasm32-wasi -fwasmtime # downstream needs this for CF workers
-      - run: zig build test -Dtarget=wasm32-wasi # downstream needs this for CF workers
-      # - run: zig build test -Dx86_64-windows # windows needs changes for env vars
+      - name: Install Zig
+        run: |
+          wget -q https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz
+          tar x -C /usr/local -f zig-linux-${ARCH}-${ZIG_VERSION}.tar.xz
+          ln -s /usr/local/zig-linux-${ARCH}-${ZIG_VERSION}/zig /usr/local/bin/zig
+      - name: Install wasmtime
+        run: curl https://wasmtime.dev/install.sh -sSf | bash
+      - name: Run tests
+        run: zig build test
+      # - run: PATH=${HOME}/.wasmtime/bin:${PATH} zig build test -fwasmtime # downstream needs this for CF workers
       - name: Notify
         uses: https://git.lerch.org/lobo/action-notify-ntfy@v2
         if: always()
