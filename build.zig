@@ -88,19 +88,19 @@ pub fn build(b: *std.Build) !void {
         // with various roots that all meet the rest of the build DAG at test_step
         // in the future. Scaleway, for instance, is another system that works
         // via shared library
-        // const lib_tests = b.addTest(.{
-        //     .root_source_file = .{ .path = "src/flexilib.zig" },
-        //     .target = t,
-        //     .optimize = optimize,
-        // });
-        // _ = try universal_lambda.addModules(b, lib_tests);
-        //
-        // var run_lib_tests = b.addRunArtifact(lib_tests);
-        // run_lib_tests.skip_foreign_checks = true;
-        // // This creates a build step. It will be visible in the `zig build --help` menu,
-        // // and can be selected like this: `zig build test`
-        // // This will evaluate the `test` step rather than the default, which is "install".
-        // test_step.dependOn(&run_lib_tests.step);
+        const lib_tests = b.addTest(.{
+            .root_source_file = .{ .path = "src/flexilib.zig" },
+            .target = t,
+            .optimize = optimize,
+        });
+        _ = try universal_lambda.addModules(b, lib_tests);
+
+        var run_lib_tests = b.addRunArtifact(lib_tests);
+        run_lib_tests.skip_foreign_checks = true;
+        // This creates a build step. It will be visible in the `zig build --help` menu,
+        // and can be selected like this: `zig build test`
+        // This will evaluate the `test` step rather than the default, which is "install".
+        test_step.dependOn(&run_lib_tests.step);
     }
 }
 
