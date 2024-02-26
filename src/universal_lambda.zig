@@ -94,12 +94,31 @@ fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: interface.H
                 aa = arena.allocator();
             }
         }
+        const builtin = @import("builtin");
+        const supports_getrusage = builtin.os.tag != .windows and @hasDecl(std.os.system, "rusage"); // Is Windows it?
+        var rss: if (supports_getrusage) std.os.rusage else void = undefined;
+        if (supports_getrusage and builtin.mode == .Debug)
+            rss = std.os.getrusage(std.os.rusage.SELF);
         processRequest(aa, &server, event_handler) catch |e| {
             log.err("Unexpected error processing request: {any}", .{e});
             if (@errorReturnTrace()) |trace| {
                 std.debug.dumpStackTrace(trace.*);
             }
         };
+        if (supports_getrusage and builtin.mode == .Debug) { // and  debug mode) {
+            const rusage = std.os.getrusage(std.os.rusage.SELF);
+            log.debug(
+                "Request complete, max RSS of process: {d}M. Incremental: {d}K, User: {d}μs, System: {d}μs",
+                .{
+                    @divTrunc(rusage.maxrss, 1024),
+                    rusage.maxrss - rss.maxrss,
+                    (rusage.utime.tv_sec - rss.utime.tv_sec) * std.time.us_per_s +
+                        rusage.utime.tv_usec - rss.utime.tv_usec,
+                    (rusage.stime.tv_sec - rss.stime.tv_sec) * std.time.us_per_s +
+                        rusage.stime.tv_usec - rss.stime.tv_usec,
+                },
+            );
+        }
     }
     return 0;
 }
