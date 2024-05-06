@@ -7,7 +7,7 @@ const log = std.log.scoped(.universal_lambda);
 
 const runFn = blk: {
     switch (build_options.build_type) {
-        .awslambda => break :blk @import("lambda.zig").run,
+        .awslambda => break :blk @import("awslambda.zig").run,
         .standalone_server => break :blk runStandaloneServerParent,
         // In the case of flexilib, our root module is actually flexilib.zig
         // so we need to import that, otherwise we risk the dreaded "file exists
