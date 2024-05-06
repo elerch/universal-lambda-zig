@@ -96,7 +96,8 @@ fn handleRequest(allocator: std.mem.Allocator, response: *interface.ZigResponse)
             },
         );
     }
-    response.headers = ul_response.headers;
+    response.headers = try allocator.dupe(std.http.Header, ul_response.headers);
+    // response.headers = ul_response.headers;
     // Anything manually written goes first
     try response_writer.writeAll(ul_response.body.items);
     // Now we right the official body (response from handler)
@@ -127,7 +128,7 @@ pub fn main() !u8 {
     register(testHandler);
     return 0;
 }
-fn testHandler(allocator: std.mem.Allocator, event_data: []const u8, context: @import("universal_lambda_interface").Context) ![]const u8 {
+fn testHandler(allocator: std.mem.Allocator, event_data: []const u8, context: universal_lambda_interface.Context) ![]const u8 {
     context.headers = &.{.{ .name = "X-custom-foo", .value = "bar" }};
     try context.writeAll(event_data);
     return std.fmt.allocPrint(allocator, "{d}", .{context.request.headers.len});
