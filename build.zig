@@ -89,7 +89,8 @@ pub fn build(b: *std.Build) !void {
     // running `zig build`).
     b.installArtifact(lib);
 
-    const test_step = b.step("test", "Run library tests");
+    const test_step = b.step("test", "Run tests (all architectures)");
+    const native_test_step = b.step("test-native", "Run tests (native only)");
 
     for (test_targets) |t| {
         // Creates steps for unit testing. This only builds the test executable
@@ -104,6 +105,7 @@ pub fn build(b: *std.Build) !void {
         var run_exe_tests = b.addRunArtifact(exe_tests);
         run_exe_tests.skip_foreign_checks = true;
         test_step.dependOn(&run_exe_tests.step);
+        if (t.cpu_arch == null) native_test_step.dependOn(&run_exe_tests.step);
 
         // Universal lambda can end up as an exe or a lib. When it is a library,
         // we end up changing the root source file away from downstream so we can
@@ -121,8 +123,8 @@ pub fn build(b: *std.Build) !void {
 
         var run_lib_tests = b.addRunArtifact(lib_tests);
         run_lib_tests.skip_foreign_checks = true;
-        // TODO: re-enable lib test
-        //test_step.dependOn(&run_lib_tests.step);
+        test_step.dependOn(&run_lib_tests.step);
+        if (t.cpu_arch == null) native_test_step.dependOn(&run_lib_tests.step);
     }
 }
 
