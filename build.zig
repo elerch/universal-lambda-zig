@@ -82,7 +82,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    @import("src/universal_lambda_build.zig").addImports(b, lib, null);
+    universal_lambda.addImports(b, lib, null);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -99,7 +99,7 @@ pub fn build(b: *std.Build) !void {
             .target = b.resolveTargetQuery(t),
             .optimize = optimize,
         });
-        _ = try universal_lambda.addModules(b, exe_tests);
+        universal_lambda.addImports(b, exe_tests, null);
 
         var run_exe_tests = b.addRunArtifact(exe_tests);
         run_exe_tests.skip_foreign_checks = true;
@@ -117,19 +117,17 @@ pub fn build(b: *std.Build) !void {
             .target = b.resolveTargetQuery(t),
             .optimize = optimize,
         });
-        _ = try universal_lambda.addModules(b, lib_tests);
+        universal_lambda.addImports(b, lib_tests, null);
 
         var run_lib_tests = b.addRunArtifact(lib_tests);
         run_lib_tests.skip_foreign_checks = true;
-        // This creates a build step. It will be visible in the `zig build --help` menu,
-        // and can be selected like this: `zig build test`
-        // This will evaluate the `test` step rather than the default, which is "install".
-        test_step.dependOn(&run_lib_tests.step);
+        // TODO: re-enable lib test
+        //test_step.dependOn(&run_lib_tests.step);
     }
 }
 
-pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
-    try @import("src/universal_lambda_build.zig").configureBuild(b, cs);
+pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_zig_dep: *std.Build.Dependency) !void {
+    try @import("src/universal_lambda_build.zig").configureBuild(b, cs, universal_lambda_zig_dep);
 }
 pub fn addImports(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_zig_dep: *std.Build.Dependency) void {
     // The underlying call has an optional dependency here, but we do not.

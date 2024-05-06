@@ -14,7 +14,7 @@ pub const BuildType = enum {
 
 pub var module_root: ?[]const u8 = null;
 
-pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
+pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_zig_dep: *std.Build.Dependency) !void {
     const function_name = b.option([]const u8, "function-name", "Function name for Lambda [zig-fn]") orelse "zig-fn";
 
     // const file_location = try addModules(b, cs);
@@ -22,7 +22,7 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     // Add steps
     try @import("lambda-zig").configureBuild(b, cs, function_name);
     try @import("cloudflare-worker-deploy").configureBuild(b, cs, function_name);
-    // try @import("flexilib_build.zig").configureBuild(b, cs, file_location);
+    try @import("flexilib_build.zig").configureBuild(b, cs, universal_lambda_zig_dep);
     try @import("standalone_server_build.zig").configureBuild(b, cs);
 }
 
