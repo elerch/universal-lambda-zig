@@ -58,7 +58,31 @@ pub fn build(b: *std.Build) !void {
     });
     const universal_lambda = @import("src/universal_lambda_build.zig");
     universal_lambda.module_root = b.build_root.path;
-    _ = try universal_lambda.addModules(b, lib);
+
+    // re-expose modules downstream
+    const flexilib_dep = b.dependency("flexilib", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const flexilib_module = flexilib_dep.module("flexilib-interface");
+    _ = b.addModule("flexilib-interface", .{
+        .root_source_file = flexilib_module.root_source_file,
+        .target = target,
+        .optimize = optimize,
+    });
+
+    _ = b.addModule("universal_lambda_interface", .{
+        .root_source_file = b.path("src/interface.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    _ = b.addModule("universal_lambda_handler", .{
+        .root_source_file = b.path("src/universal_lambda.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    @import("src/universal_lambda_build.zig").addImports(b, lib, null);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -72,7 +96,7 @@ pub fn build(b: *std.Build) !void {
         // but does not run it.
         const exe_tests = b.addTest(.{
             .root_source_file = .{ .path = "src/test.zig" },
-            .target = t,
+            .target = b.resolveTargetQuery(t),
             .optimize = optimize,
         });
         _ = try universal_lambda.addModules(b, exe_tests);
@@ -90,7 +114,7 @@ pub fn build(b: *std.Build) !void {
         // via shared library
         const lib_tests = b.addTest(.{
             .root_source_file = .{ .path = "src/flexilib.zig" },
-            .target = t,
+            .target = b.resolveTargetQuery(t),
             .optimize = optimize,
         });
         _ = try universal_lambda.addModules(b, lib_tests);
@@ -107,6 +131,9 @@ pub fn build(b: *std.Build) !void {
 pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile) !void {
     try @import("src/universal_lambda_build.zig").configureBuild(b, cs);
 }
-pub fn addModules(b: *std.Build, cs: *std.Build.Step.Compile) ![]const u8 {
-    return try @import("src/universal_lambda_build.zig").addModules(b, cs);
+pub fn addImports(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_zig_dep: *std.Build.Dependency) void {
+    // The underlying call has an optional dependency here, but we do not.
+    // Downstream must provide the dependency, which will ensure that the
+    // modules we have exposed above do, in fact, get exposed
+    return @import("src/universal_lambda_build.zig").addImports(b, cs, universal_lambda_zig_dep);
 }
