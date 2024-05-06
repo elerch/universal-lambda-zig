@@ -4,7 +4,7 @@ pub const HandlerFn = *const fn (std.mem.Allocator, []const u8, Context) anyerro
 
 pub const Response = struct {
     allocator: std.mem.Allocator,
-    headers: std.http.Headers,
+    headers: []const std.http.Header,
     headers_owned: bool = true,
     status: std.http.Status = .ok,
     reason: ?[]const u8 = null,
@@ -15,7 +15,7 @@ pub const Response = struct {
     /// that here
     request: struct {
         target: []const u8 = "/",
-        headers: std.http.Headers,
+        headers: []const std.http.Header,
         headers_owned: bool = true,
         method: std.http.Method = .GET,
     },
@@ -37,9 +37,9 @@ pub const Response = struct {
     pub fn init(allocator: std.mem.Allocator) Response {
         return .{
             .allocator = allocator,
-            .headers = .{ .allocator = allocator },
+            .headers = &.{},
             .request = .{
-                .headers = .{ .allocator = allocator },
+                .headers = &.{},
             },
             .body = std.ArrayList(u8).init(allocator),
         };
@@ -61,8 +61,8 @@ pub const Response = struct {
     }
     pub fn deinit(res: *Response) void {
         res.body.deinit();
-        if (res.headers_owned) res.headers.deinit();
-        if (res.request.headers_owned) res.request.headers.deinit();
+        if (res.headers_owned) res.allocator.free(res.headers);
+        if (res.request.headers_owned) res.allocator.free(res.request.headers);
     }
 };
 
