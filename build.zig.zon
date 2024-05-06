@@ -4,8 +4,32 @@
 
     .dependencies = .{
         .flexilib = .{
-            .url = "https://git.lerch.org/lobo/flexilib/archive/3d3dab9c792651477932e2b61c9f4794ac694dcb.tar.gz",
-            .hash = "1220fd7a614fe3c9f6006b630bba528e2ec9dca9c66f5ff10f7e471ad2bdd41b6c89",
+            .path = "../flexilib",
         },
+        .@"lambda-zig" = .{
+            .path = "../lambda-zig",
+        },
+        .@"cloudflare-worker-deploy" = .{
+            .path = "../cloudflare-worker-deploy",
+        },
+    },
+
+    // This field is optional.
+    // This is currently advisory only; Zig does not yet do anything
+    // with this value.
+    .minimum_zig_version = "0.12.0",
+
+    // Specifies the set of files and directories that are included in this package.
+    // Only files and directories listed here are included in the `hash` that
+    // is computed for this package.
+    // Paths are relative to the build root. Use the empty string (`""`) to refer to
+    // the build root itself.
+    // A directory listed here means that all files within, recursively, are included.
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
     },
 }
