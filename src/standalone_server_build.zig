@@ -5,7 +5,7 @@ const builtin = @import("builtin");
 ///
 /// * standalone_server: This will run the handler as a standalone web server
 ///
-pub fn configureBuild(b: *std.build.Builder, exe: *std.Build.Step.Compile) !void {
+pub fn configureBuild(b: *std.Build, exe: *std.Build.Step.Compile) !void {
     _ = exe;
     // We don't actually need to do much here. Basically we need a dummy step,
     // but one which the user will select, which will allow our options mechanism
