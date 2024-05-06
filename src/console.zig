@@ -31,7 +31,7 @@ pub fn run(allocator: ?std.mem.Allocator, event_handler: interface.HandlerFn) !u
     defer response.deinit();
     var headers = try findHeaders(aa);
     defer headers.deinit();
-    response.request.headers = headers.http_headers.*;
+    response.request.headers = headers.http_headers;
     response.request.headers_owned = false;
     response.request.target = try findTarget(aa);
     response.request.method = try findMethod(aa);
@@ -107,7 +107,7 @@ fn findTarget(allocator: std.mem.Allocator) ![]const u8 {
                 return error.CommandLineError;
             if (is_target_option)
                 return arg;
-            return (try std.Uri.parse(arg)).path;
+            return (try std.Uri.parse(arg)).path.raw;
         }
         if (std.mem.startsWith(u8, arg, "-" ++ target_option.short) or
             std.mem.startsWith(u8, arg, "--" ++ target_option.long))
@@ -126,7 +126,7 @@ fn findTarget(allocator: std.mem.Allocator) ![]const u8 {
             var split = std.mem.splitSequence(u8, arg, "=");
             _ = split.next();
             const rest = split.rest();
-            if (split.next()) |_| return (try std.Uri.parse(rest)).path; // found it
+            if (split.next()) |_| return (try std.Uri.parse(rest)).path.raw; // found it
             is_url_option = true;
         }
     }
@@ -134,13 +134,13 @@ fn findTarget(allocator: std.mem.Allocator) ![]const u8 {
 }
 
 pub const Headers = struct {
-    http_headers: *std.http.Headers,
+    http_headers: []std.http.Header,
     owned: bool,
     allocator: std.mem.Allocator,
 
     const Self = @This();
 
-    pub fn init(allocator: std.mem.Allocator, headers: *std.http.Headers, owned: bool) Self {
+    pub fn init(allocator: std.mem.Allocator, headers: []std.http.Header, owned: bool) Self {
         return .{
             .http_headers = headers,
             .owned = owned,
@@ -150,8 +150,7 @@ pub const Headers = struct {
 
     pub fn deinit(self: *Self) void {
         if (self.owned) {
-            self.http_headers.deinit();
-            self.allocator.destroy(self.http_headers);
+            self.allocator.free(self.http_headers);
             self.http_headers = undefined;
         }
     }
@@ -160,13 +159,8 @@ pub const Headers = struct {
 // Get headers from request. Headers will be gathered from the command line
 // and include all environment variables
 pub fn findHeaders(allocator: std.mem.Allocator) !Headers {
-    var headers = try allocator.create(std.http.Headers);
-    errdefer allocator.destroy(headers);
-    headers.allocator = allocator;
-    headers.list = .{};
-    headers.index = .{};
-    headers.owned = true;
-    errdefer headers.deinit();
+    var headers = std.ArrayList(std.http.Header).init(allocator);
+    defer headers.deinit();
 
     // without context, we have environment variables
     // possibly event data (API Gateway does this if so configured),
@@ -185,7 +179,7 @@ pub fn findHeaders(allocator: std.mem.Allocator) !Headers {
             is_header_option = false;
             var split = std.mem.splitSequence(u8, arg, "=");
             const name = split.next().?;
-            try headers.append(name, split.rest());
+            try headers.append(.{ .name = name, .value = split.rest() });
         }
         if (std.mem.startsWith(u8, arg, "-" ++ header_option.short) or
             std.mem.startsWith(u8, arg, "--" ++ header_option.long))
@@ -196,21 +190,30 @@ pub fn findHeaders(allocator: std.mem.Allocator) !Headers {
             is_header_option = true;
         }
     }
-    if (is_test) return Headers.init(allocator, headers, true);
+    if (is_test) return Headers.init(allocator, try headers.toOwnedSlice(), true);
 
     // not found on command line. Let's check environment
+    // TODO: Get this under test - fake an environment map with deterministic values
     var map = try std.process.getEnvMap(allocator);
     defer map.deinit();
     var it = map.iterator();
     while (it.next()) |kvp| {
         // Do not allow environment variables to interfere with command line
-        if (headers.getFirstValue(kvp.key_ptr.*) == null)
-            try headers.append(
-                kvp.key_ptr.*,
-                kvp.value_ptr.*,
-            );
+        var found = false;
+        const key = kvp.key_ptr.*;
+        for (headers.items) |h| {
+            if (std.ascii.eqlIgnoreCase(h.name, key)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            try headers.append(.{
+                .name = try allocator.dupe(u8, key),
+                .value = try allocator.dupe(u8, kvp.value_ptr.*),
+            });
     }
-    return Headers.init(allocator, headers, true);
+    return Headers.init(allocator, try headers.toOwnedSlice(), true);
 }
 
 test {
@@ -233,13 +236,13 @@ test "can get headers" {
     try test_args.append(allocator, "X-Foo=Bar");
     var headers = try findHeaders(allocator);
     defer headers.deinit();
-    try std.testing.expectEqual(@as(usize, 1), headers.http_headers.list.items.len);
+    try std.testing.expectEqual(@as(usize, 1), headers.http_headers.len);
 }
 
 fn testHandler(allocator: std.mem.Allocator, event_data: []const u8, context: interface.Context) ![]const u8 {
-    try context.headers.append("X-custom-foo", "bar");
+    context.headers = &.{.{ .name = "X-custom-foo", .value = "bar" }};
     try context.writeAll(event_data);
-    return std.fmt.allocPrint(allocator, "{d}", .{context.request.headers.list.items.len});
+    return std.fmt.allocPrint(allocator, "{d}", .{context.request.headers.len});
 }
 
 var test_args: std.SegmentedList([]const u8, 8) = undefined;
@@ -249,7 +252,7 @@ var test_output: std.ArrayList(u8) = undefined;
 test "handle_request" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
-    var aa = arena.allocator();
+    const aa = arena.allocator();
     test_args = .{};
     defer test_args.deinit(aa);
     try test_args.append(aa, "mainexe");
