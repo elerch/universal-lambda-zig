@@ -27,7 +27,7 @@ const Application = if (@import("builtin").is_test) @This() else @import("flexil
 // }
 //
 comptime {
-    @export(interface.zigInit, .{ .name = "zigInit", .linkage = .Strong });
+    @export(interface.zigInit, .{ .name = "zigInit", .linkage = .strong });
 }
 
 /// handle_request will be called on a single request, but due to the preservation
@@ -73,17 +73,17 @@ fn handleRequest(allocator: std.mem.Allocator, response: *interface.ZigResponse)
     ul_response.request.headers = response.request.headers;
     ul_response.request.method = std.meta.stringToEnum(std.http.Method, response.request.method) orelse std.http.Method.GET;
     const builtin = @import("builtin");
-    const supports_getrusage = builtin.os.tag != .windows and @hasDecl(std.os.system, "rusage"); // Is Windows it?
-    var rss: if (supports_getrusage) std.os.rusage else void = undefined;
+    const supports_getrusage = builtin.os.tag != .windows and @hasDecl(std.posix.system, "rusage"); // Is Windows it?
+    var rss: if (supports_getrusage) std.posix.rusage else void = undefined;
     if (supports_getrusage and builtin.mode == .Debug)
-        rss = std.os.getrusage(std.os.rusage.SELF);
+        rss = std.posix.getrusage(std.posix.rusage.SELF);
     const response_content = try handler.?(
         allocator,
         response.request.content,
         &ul_response,
     );
     if (supports_getrusage and builtin.mode == .Debug) { // and  debug mode) {
-        const rusage = std.os.getrusage(std.os.rusage.SELF);
+        const rusage = std.posix.getrusage(std.posix.rusage.SELF);
         log.debug(
             "Request complete, max RSS of process: {d}M. Incremental: {d}K, User: {d}μs, System: {d}μs",
             .{
@@ -96,10 +96,7 @@ fn handleRequest(allocator: std.mem.Allocator, response: *interface.ZigResponse)
             },
         );
     }
-    // Copy any headers
-    for (ul_response.headers.list.items) |entry| {
-        try response.headers.append(entry.name, entry.value);
-    }
+    response.headers = ul_response.headers;
     // Anything manually written goes first
     try response_writer.writeAll(ul_response.body.items);
     // Now we right the official body (response from handler)
@@ -131,9 +128,9 @@ pub fn main() !u8 {
     return 0;
 }
 fn testHandler(allocator: std.mem.Allocator, event_data: []const u8, context: @import("universal_lambda_interface").Context) ![]const u8 {
-    try context.headers.append("X-custom-foo", "bar");
+    context.headers = &.{.{ .name = "X-custom-foo", .value = "bar" }};
     try context.writeAll(event_data);
-    return std.fmt.allocPrint(allocator, "{d}", .{context.request.headers.list.items.len});
+    return std.fmt.allocPrint(allocator, "{d}", .{context.request.headers.len});
 }
 // Need to figure out how tests would work
 test "handle_request" {
@@ -141,7 +138,7 @@ test "handle_request" {
     defer arena.deinit();
     var aa = arena.allocator();
     interface.zigInit(&aa);
-    var headers: []interface.Header = @constCast(&[_]interface.Header{.{
+    const headers: []interface.Header = @constCast(&[_]interface.Header{.{
         .name_ptr = @ptrCast(@constCast("GET".ptr)),
         .name_len = 3,
         .value_ptr = @ptrCast(@constCast("GET".ptr)),
