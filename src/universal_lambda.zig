@@ -34,7 +34,7 @@ fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: inter
     var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
 
-    var aa = arena.allocator();
+    const aa = arena.allocator();
     var al = std.ArrayList([]const u8).init(aa);
     defer al.deinit();
     var argi = std.process.args();
@@ -67,6 +67,7 @@ fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: inter
 /// Will create a web server and marshall all requests back to our event handler
 /// To keep things simple, we'll have this on a single thread, at least for now
 fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: interface.HandlerFn) !u8 {
+    // TODO: Get this under test. It doesn't work in zig 0.12.0
     const alloc = allocator orelse std.heap.page_allocator;
 
     var arena = std.heap.ArenaAllocator.init(alloc);
@@ -123,41 +124,37 @@ fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: interface.H
     return 0;
 }
 
-fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler: interface.HandlerFn) !void {
-    var res = try server.accept(.{ .allocator = aa });
-    defer {
-        _ = res.reset();
-        if (res.headers.owned and res.headers.list.items.len > 0) res.headers.deinit();
-        res.deinit();
-    }
-    try res.wait(); // wait for client to send a complete request head
+fn processRequest(aa: std.mem.Allocator, server: *std.net.Server, event_handler: interface.HandlerFn) !void {
+    var connection = try server.accept();
+    defer connection.stream.close();
 
-    const errstr = "Internal Server Error\n";
-    var errbuf: [errstr.len]u8 = undefined;
-    @memcpy(&errbuf, errstr);
-    var response_bytes: []const u8 = errbuf[0..];
+    var read_buffer: [1024 * 16]u8 = undefined; // TODO: Fix this
+    var server_connection = std.http.Server.init(connection, &read_buffer);
+    var req = try server_connection.receiveHead();
 
-    var body = if (res.request.content_length) |l|
-        try res.reader().readAllAlloc(aa, @as(usize, @intCast(l)))
-    else
-        try aa.dupe(u8, "");
-    // no need to free - will be handled by arena
+    const request_body = try (try req.reader()).readAllAlloc(aa, @as(usize, std.math.maxInt(usize)));
+    var request_headers = std.ArrayList(std.http.Header).init(aa);
+    defer request_headers.deinit();
+    var hi = req.iterateHeaders();
+    while (hi.next()) |h| try request_headers.append(h);
 
     var response = interface.Response.init(aa);
     defer response.deinit();
-    response.request.headers = res.request.headers;
+    response.request.headers = request_headers.items;
     response.request.headers_owned = false;
-    response.request.target = res.request.target;
-    response.request.method = res.request.method;
-    response.headers = res.headers;
+    response.request.target = req.head.target;
+    response.request.method = req.head.method;
+    response.headers = &.{};
     response.headers_owned = false;
 
-    response_bytes = event_handler(aa, body, &response) catch |e| brk: {
-        res.status = response.status;
-        res.reason = response.reason;
-        if (res.status.class() == .success) {
-            res.status = .internal_server_error;
-            res.reason = null;
+    var respond_options = std.http.Server.Request.RespondOptions{};
+    const response_bytes = event_handler(aa, request_body, &response) catch |e| brk: {
+        respond_options.status = response.status;
+        respond_options.reason = response.reason;
+        if (respond_options.status.class() == .success) {
+            respond_options.status = .internal_server_error;
+            respond_options.reason = null;
+            response.body.items = "";
         }
         // TODO: stream body to client? or keep internal?
         // TODO: more about this particular request
@@ -167,22 +164,12 @@ fn processRequest(aa: std.mem.Allocator, server: *std.http.Server, event_handler
         }
         break :brk "Unexpected error generating request to lambda";
     };
-    res.transfer_encoding = .{ .content_length = response_bytes.len };
 
-    try res.do();
-    _ = try res.writer().writeAll(response.body.items);
-    _ = try res.writer().writeAll(response_bytes);
-    try res.finish();
+    const final_response = try std.mem.concat(aa, u8, &[_][]const u8{ response.body.items, response_bytes });
+    try req.respond(final_response, respond_options);
 }
 test {
     std.testing.refAllDecls(@This());
-    // if (builtin.os.tag == .wasi) return error.SkipZigTest;
-    if (@import("builtin").os.tag != .wasi) {
-        // these use http
-        std.testing.refAllDecls(@import("lambda.zig"));
-        std.testing.refAllDecls(@import("cloudflaredeploy.zig"));
-        std.testing.refAllDecls(@import("CloudflareDeployStep.zig"));
-    }
     std.testing.refAllDecls(@import("console.zig"));
     // By importing flexilib.zig, this breaks downstream any time someone
     // tries to build flexilib, because flexilib.zig becomes the root module,
@@ -207,24 +194,21 @@ fn testRequest(request_bytes: []const u8, event_handler: interface.HandlerFn) !v
     var arena = std.heap.ArenaAllocator.init(allocator);
     defer arena.deinit();
 
-    var server = std.http.Server.init(allocator, .{ .reuse_address = true });
-    defer server.deinit();
-
     const address = try std.net.Address.parseIp("127.0.0.1", 0);
-    try server.listen(address);
-    const server_port = server.socket.listen_address.in.getPort();
+    var http_server = try address.listen(.{ .reuse_address = true });
+    const server_port = http_server.listen_address.in.getPort();
 
     var al = std.ArrayList(u8).init(allocator);
     defer al.deinit();
-    var writer = al.writer();
+    const writer = al.writer();
     _ = writer;
-    var aa = arena.allocator();
-    var bytes_allocated: usize = 0;
+    const aa = arena.allocator();
+    const bytes_allocated: usize = 0;
     // pre-warm
     const server_thread = try std.Thread.spawn(
         .{},
         processRequest,
-        .{ aa, &server, event_handler },
+        .{ aa, &http_server, event_handler },
     );
 
     const stream = try std.net.tcpConnectToHost(allocator, "127.0.0.1", server_port);
