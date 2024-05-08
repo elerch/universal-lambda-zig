@@ -1,6 +1,6 @@
 const std = @import("std");
-const lambda_zig = @import("lambda-zig");
+// const lambda_zig = @import("lambda-zig");
 
 pub fn run() !void {
-    lambda_zig.run();
+    // lambda_zig.run();
 }
