@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 const build_options = @import("universal_lambda_build_options");
 const flexilib = @import("flexilib-interface");
@@ -46,7 +47,8 @@ fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: inter
     while (argi.next()) |a| {
         if (std.mem.eql(u8, child_arg, a)) {
             // This should never actually return
-            return try runStandaloneServer(allocator, event_handler);
+            try runStandaloneServer(allocator, event_handler, 8080); // TODO: configurable port
+            return 0;
         }
         try al.append(a);
     }
@@ -66,27 +68,25 @@ fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: inter
 
 /// Will create a web server and marshall all requests back to our event handler
 /// To keep things simple, we'll have this on a single thread, at least for now
-fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: interface.HandlerFn) !u8 {
-    // TODO: Get this under test. It doesn't work in zig 0.12.0
+fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: interface.HandlerFn, port: u16) !void {
     const alloc = allocator orelse std.heap.page_allocator;
 
     var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
 
     var aa = arena.allocator();
-    var server = std.http.Server.init(aa, .{ .reuse_address = true });
-    defer server.deinit();
-    const address = try std.net.Address.parseIp("127.0.0.1", 8080); // TODO: allow config
-    try server.listen(address);
-    const server_port = server.socket.listen_address.in.getPort();
-    var uri: ["http://127.0.0.1:99999".len]u8 = undefined;
-    _ = try std.fmt.bufPrint(&uri, "http://127.0.0.1:{d}", .{server_port});
-    log.info("server listening at {s}", .{uri});
+    const address = try std.net.Address.parseIp("127.0.0.1", port);
+    var net_server = try address.listen(.{ .reuse_address = true });
+    const server_port = net_server.listen_address.in.getPort();
+    _ = try std.fmt.bufPrint(&server_url, "http://127.0.0.1:{d}", .{server_port});
+    log.info("server listening at {s}", .{server_url});
+    if (builtin.is_test) server_ready = true;
 
     // No threads, maybe later
     //log.info("starting server thread, tid {d}", .{std.Thread.getCurrentId()});
-    while (true) {
+    while (remaining_requests == null or remaining_requests.? > 0) {
         defer {
+            if (remaining_requests) |*r| r.* -= 1;
             if (!arena.reset(.{ .retain_with_limit = 1024 * 1024 })) {
                 // reallocation failed, arena is degraded
                 log.warn("Arena reset failed and is degraded. Resetting arena", .{});
@@ -95,19 +95,20 @@ fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: interface.H
                 aa = arena.allocator();
             }
         }
-        const builtin = @import("builtin");
-        const supports_getrusage = builtin.os.tag != .windows and @hasDecl(std.os.system, "rusage"); // Is Windows it?
-        var rss: if (supports_getrusage) std.os.rusage else void = undefined;
+        const supports_getrusage = builtin.os.tag != .windows and @hasDecl(std.posix.system, "rusage"); // Is Windows it?
+        var rss: if (supports_getrusage) std.posix.rusage else void = undefined;
         if (supports_getrusage and builtin.mode == .Debug)
-            rss = std.os.getrusage(std.os.rusage.SELF);
-        processRequest(aa, &server, event_handler) catch |e| {
+            rss = std.posix.getrusage(std.posix.rusage.SELF);
+        if (builtin.is_test) bytes_allocated = arena.queryCapacity();
+        processRequest(aa, &net_server, event_handler) catch |e| {
             log.err("Unexpected error processing request: {any}", .{e});
             if (@errorReturnTrace()) |trace| {
                 std.debug.dumpStackTrace(trace.*);
             }
         };
+        if (builtin.is_test) bytes_allocated = arena.queryCapacity() - bytes_allocated;
         if (supports_getrusage and builtin.mode == .Debug) { // and  debug mode) {
-            const rusage = std.os.getrusage(std.os.rusage.SELF);
+            const rusage = std.posix.getrusage(std.posix.rusage.SELF);
             log.debug(
                 "Request complete, max RSS of process: {d}M. Incremental: {d}K, User: {d}μs, System: {d}μs",
                 .{
@@ -121,10 +122,11 @@ fn runStandaloneServer(allocator: ?std.mem.Allocator, event_handler: interface.H
             );
         }
     }
-    return 0;
+    return;
 }
 
 fn processRequest(aa: std.mem.Allocator, server: *std.net.Server, event_handler: interface.HandlerFn) !void {
+    // This function is under test, but not the standalone server itself
     var connection = try server.accept();
     defer connection.stream.close();
 
@@ -189,43 +191,48 @@ test {
     // TODO: Do we want build files here too?
 }
 
-fn testRequest(request_bytes: []const u8, event_handler: interface.HandlerFn) !void {
-    const allocator = std.testing.allocator;
-    var arena = std.heap.ArenaAllocator.init(allocator);
-    defer arena.deinit();
+var server_ready = false;
+var remaining_requests: ?usize = null;
+var server_url: ["http://127.0.0.1:99999".len]u8 = undefined;
+var bytes_allocated: usize = 0;
 
-    const address = try std.net.Address.parseIp("127.0.0.1", 0);
-    var http_server = try address.listen(.{ .reuse_address = true });
-    const server_port = http_server.listen_address.in.getPort();
-
-    var al = std.ArrayList(u8).init(allocator);
-    defer al.deinit();
-    const writer = al.writer();
-    _ = writer;
-    const aa = arena.allocator();
-    const bytes_allocated: usize = 0;
-    // pre-warm
+fn testRequest(method: std.http.Method, target: []const u8, event_handler: interface.HandlerFn) !void {
+    remaining_requests = 1;
+    defer remaining_requests = null;
     const server_thread = try std.Thread.spawn(
         .{},
-        processRequest,
-        .{ aa, &http_server, event_handler },
+        runStandaloneServer,
+        .{ null, event_handler, 0 },
     );
+    var client = std.http.Client{ .allocator = std.testing.allocator };
+    defer client.deinit();
+    defer server_ready = false;
+    while (!server_ready) std.time.sleep(1);
 
-    const stream = try std.net.tcpConnectToHost(allocator, "127.0.0.1", server_port);
-    defer stream.close();
-    _ = try stream.writeAll(request_bytes[0..]);
+    const url = try std.mem.concat(std.testing.allocator, u8, &[_][]const u8{ server_url[0..], target });
+    defer std.testing.allocator.free(url);
+    log.debug("fetch from url: {s}", .{url});
+
+    var response_data = std.ArrayList(u8).init(std.testing.allocator);
+    defer response_data.deinit();
+
+    const resp = try client.fetch(.{
+        .response_storage = .{ .dynamic = &response_data },
+        .method = method,
+        .location = .{ .url = url },
+    });
 
     server_thread.join();
-    log.debug("Bytes allocated during request: {d}", .{arena.queryCapacity() - bytes_allocated});
-    log.debug("Stdout: {s}", .{al.items});
+    log.debug("Bytes allocated during request: {d}", .{bytes_allocated});
+    log.debug("Response status: {}", .{resp.status});
+    log.debug("Response: {s}", .{response_data.items});
 }
 
 fn testGet(comptime path: []const u8, event_handler: interface.HandlerFn) !void {
-    try testRequest("GET " ++ path ++ " HTTP/1.1\r\n" ++
-        "Accept: */*\r\n" ++
-        "\r\n", event_handler);
+    try testRequest(.GET, path, event_handler);
 }
 test "can make a request" {
+    // std.testing.log_level = .debug;
     if (@import("builtin").os.tag == .wasi) return error.SkipZigTest;
     const HandlerClosure = struct {
         var data_received: []const u8 = undefined;

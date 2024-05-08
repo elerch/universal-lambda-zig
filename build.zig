@@ -96,6 +96,7 @@ pub fn build(b: *std.Build) !void {
         // Creates steps for unit testing. This only builds the test executable
         // but does not run it.
         const exe_tests = b.addTest(.{
+            .name = "test: as executable",
             .root_source_file = .{ .path = "src/test.zig" },
             .target = b.resolveTargetQuery(t),
             .optimize = optimize,
@@ -115,6 +116,7 @@ pub fn build(b: *std.Build) !void {
         // in the future. Scaleway, for instance, is another system that works
         // via shared library
         const lib_tests = b.addTest(.{
+            .name = "test: as library",
             .root_source_file = .{ .path = "src/flexilib.zig" },
             .target = b.resolveTargetQuery(t),
             .optimize = optimize,
