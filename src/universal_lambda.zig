@@ -30,7 +30,8 @@ test {
     std.testing.refAllDecls(@This());
     std.testing.refAllDecls(@import("console.zig"));
     std.testing.refAllDecls(@import("standalone_server.zig"));
-    std.testing.refAllDecls(@import("awslambda.zig"));
+    if (@import("builtin").os.tag != .wasi)
+        std.testing.refAllDecls(@import("awslambda.zig"));
     // By importing flexilib.zig, this breaks downstream any time someone
     // tries to build flexilib, because flexilib.zig becomes the root module,
     // then gets imported here again. It shouldn't be done unless doing

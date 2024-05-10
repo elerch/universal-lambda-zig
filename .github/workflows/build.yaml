@@ -9,6 +9,7 @@ env:
   ACTIONS_RUNTIME_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   ACTIONS_RUNTIME_URL: ${{ env.GITHUB_SERVER_URL }}/api/actions_pipeline/
   WASMTIME_BACKTRACE_DETAILS: 1
+  WASMTIME_NEW_CLI: 0
 jobs:
   build:
     runs-on: ubuntu-latest
