@@ -59,7 +59,7 @@ pub fn build(b: *std.Build) !void {
     const universal_lambda = @import("src/universal_lambda_build.zig");
     universal_lambda.module_root = b.build_root.path;
 
-    // re-expose modules downstream
+    // re-expose flexilib-interface and aws_lambda modules downstream
     const flexilib_dep = b.dependency("flexilib", .{
         .target = target,
         .optimize = optimize,
@@ -70,7 +70,18 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+    const aws_lambda_dep = b.dependency("lambda-zig", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const aws_lambda_module = aws_lambda_dep.module("lambda_runtime");
+    _ = b.addModule("aws_lambda_runtime", .{
+        .root_source_file = aws_lambda_module.root_source_file,
+        .target = target,
+        .optimize = optimize,
+    });
 
+    // Expose our own modules downstream
     _ = b.addModule("universal_lambda_interface", .{
         .root_source_file = b.path("src/interface.zig"),
         .target = target,

@@ -35,6 +35,7 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile, universal_lamb
 /// * universal_lambda_handler
 pub fn addImports(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_zig_dep: ?*std.Build.Dependency) void {
     const Modules = struct {
+        aws_lambda_runtime: *std.Build.Module,
         flexilib_interface: *std.Build.Module,
         universal_lambda_interface: *std.Build.Module,
         universal_lambda_handler: *std.Build.Module,
@@ -43,6 +44,7 @@ pub fn addImports(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_z
     const modules =
         if (universal_lambda_zig_dep) |d|
         Modules{
+            .aws_lambda_runtime = d.module("aws_lambda_runtime"),
             .flexilib_interface = d.module("flexilib-interface"),
             .universal_lambda_interface = d.module("universal_lambda_interface"),
             .universal_lambda_handler = d.module("universal_lambda_handler"),
@@ -50,6 +52,7 @@ pub fn addImports(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_z
         }
     else
         Modules{
+            .aws_lambda_runtime = b.modules.get("aws_lambda_runtime").?,
             .flexilib_interface = b.modules.get("flexilib-interface").?,
             .universal_lambda_interface = b.modules.get("universal_lambda_interface").?,
             .universal_lambda_handler = b.modules.get("universal_lambda_handler").?,
@@ -60,11 +63,13 @@ pub fn addImports(b: *std.Build, cs: *std.Build.Step.Compile, universal_lambda_z
     cs.root_module.addImport("flexilib-interface", modules.flexilib_interface);
     cs.root_module.addImport("universal_lambda_interface", modules.universal_lambda_interface);
     cs.root_module.addImport("universal_lambda_handler", modules.universal_lambda_handler);
+    cs.root_module.addImport("aws_lambda_runtime", modules.aws_lambda_runtime);
 
     // universal lambda handler also needs these imports
     modules.universal_lambda_handler.addImport("universal_lambda_interface", modules.universal_lambda_interface);
     modules.universal_lambda_handler.addImport("flexilib-interface", modules.flexilib_interface);
     modules.universal_lambda_handler.addImport("universal_lambda_build_options", modules.universal_lambda_build_options);
+    modules.universal_lambda_handler.addImport("aws_lambda_runtime", modules.aws_lambda_runtime);
 
     return;
 }
