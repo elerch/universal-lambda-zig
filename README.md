@@ -1,7 +1,7 @@
 "Univeral Lambda" for Zig
 =========================
 
-This a Zig 0.11 project intended to be used as a package to turn a zig program
+This a Zig 0.12 project intended to be used as a package to turn a zig program
 into a function that can be run as:
 
 * A command line executable
@@ -14,69 +14,57 @@ into a function that can be run as:
 Usage - Development
 -------------------
 
-From an empty directory, with Zig 0.11 installed:
+From an empty directory, with Zig 0.12 installed:
 
-`zig init-exe`
-
-
-Create a `build.zig.zon` with the following contents:
-
+```sh
+zig init-exe
+zig fetch --save https://git.lerch.org/lobo/universal-lambda-zig/archive/9b4e1cb5bc0513f0a0037b76a3415a357e8db427.tar.gz
 ```
-.{
-    .name = "univeral-zig-example",
-    .version = "0.0.1",
-
-    .dependencies = .{
-        .universal_lambda_build = .{
-            .url = "https://git.lerch.org/lobo/universal-lambda-zig/archive/07366606696081f324591b66ab7a9a176a38424c.tar.gz",
-            .hash = "122049daa19f61d778a79ffb82c64775ca5132ee5c4797d7f7d76667ab82593917cd",
-        },
-        .flexilib = .{
-            .url = "https://git.lerch.org/lobo/flexilib/archive/c44ad2ba84df735421bef23a2ad612968fb50f06.tar.gz",
-            .hash = "122051fdfeefdd75653d3dd678c8aa297150c2893f5fad0728e0d953481383690dbc",
-        },
-    },
-}
-```
-
-Due to limitations in the build apis related to relative file paths, the
-dependency name currently must be "universal_lambda_build". Also, note that
-the flexilib dependency is required at all times. This requirement may go away
-with zig 0.12 (see [#17135](https://github.com/ziglang/zig/issues/17135))
-and/or changes to this library.
 
 **Build.zig:**
 
 * Add an import at the top:
 
 ```zig
-const universal_lambda = @import("universal_lambda_build");
+const universal_lambda = @import("universal-lambda-zig");
 ```
 
 * Set the return of the build function to return `!void` rather than `void`
 * Add a line to the build script, after any modules are used, but otherwise just
-  after adding the exe is fine:
+  after adding the exe is fine. Imports will also be added through universal_lambda:
 
 ```zig
-try universal_lambda.configureBuild(b, exe);
+const univeral_lambda_dep = b.dependency("universal-lambda-zig", .{
+    .target = target,
+    .optimize = optimize,
+});
+try universal_lambda.configureBuild(b, exe, univeral_lambda_dep);
+_ = universal_lambda.addImports(b, exe, univeral_lambda_dep);
 ```
 
 This will provide most of the magic functionality of the package, including
-several new build steps to manage the system, and a new import to be used. For
-testing, it is also advisable to add the modules to your tests by adding a line
-like so:
+several new build steps to manage the system, as well as imports necessary
+for each of the providers. Note that addImports should also be called for
+unit tests.
 
 ```zig
-_ = try universal_lambda.addModules(b, main_tests);
+_ = universal_lambda.addImports(b, unit_tests, univeral_lambda_dep);
 ```
 
 **main.zig**
 
-The build changes above will add several modules:
+`addImports` will make the following primary imports available for use:
 
 * universal_lambda_handler: Main import, used to register your handler
 * universal_lambda_interface: Contains the context type used in the handler function
-* flexilib-interface: Used as a dependency of the handler. Not normally needed
+
+Additional imports are available and used by the universal lambda runtime, but
+should not normally be needed for direct use:
+
+* flexilib-interface: Used as a dependency of the handler
+* universal_lambda_build_options: Provides the ability to determine which provider is used
+                                  The build type is stored under a `build_type` variable.
+* aws_lambda_runtime: Provides the aws lambda provider access to the underlying library
 
 Add imports for the handler registration and interface:
 
@@ -84,9 +72,6 @@ Add imports for the handler registration and interface:
 const universal_lambda = @import("universal_lambda_handler");
 const universal_lambda_interface = @import("universal_lambda_interface");
 ```
-
-Another module `universal_lambda_build_options` is available if access to the
-environment is needed. The build type is stored under a `build_type` variable.
 
 Add a handler to be executed. The handler must follow this signature:
 
@@ -100,7 +85,7 @@ Your main function should return `!u8`. Let the package know about your handler 
 return try universal_lambda.run(null, handler);
 ```
 
-The first parameter above is an allocator. If you have a specific handler you
+The first parameter above is an allocator. If you have a specific allocator you
 would like to use, you may specify it. Otherwise, an appropriate allocator
 will be created and used. Currently this is an ArenaAllocator wrapped around
 an appropriate base allocator, so your handler does not require deallocation.
