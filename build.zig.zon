@@ -4,13 +4,16 @@
 
     .dependencies = .{
         .flexilib = .{
-            .path = "../flexilib",
+            .url = "https://git.lerch.org/lobo/FlexiLib/archive/48c0e893da20c9821f6fe55516861e08b9cb6c77.tar.gz",
+            .hash = "1220a4db25529543a82d199a17495aedd7766fef4f5d0122893566663721167b6168",
         },
         .@"lambda-zig" = .{
-            .path = "../lambda-zig",
+            .url = "https://git.lerch.org/lobo/lambda-zig/archive/9d1108697282d24509472d7019c97d1afe06ba1c.tar.gz",
+            .hash = "12205b8a2be03b63a1b07bde373e8293c96be53a68a58054abe8689f80d691633862",
         },
         .@"cloudflare-worker-deploy" = .{
-            .path = "../cloudflare-worker-deploy",
+            .url = "https://git.lerch.org/lobo/cloudflare-worker-deploy/archive/0581221c11cf32dce48abc5b950d974e570afb0d.tar.gz",
+            .hash = "12204e7befb1691ac40c124fcb63edf3c792cae7b4b1974edc1da23a36ba6f089d02",
         },
     },
 
