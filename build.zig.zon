@@ -12,8 +12,8 @@
             .hash = "12205b8a2be03b63a1b07bde373e8293c96be53a68a58054abe8689f80d691633862",
         },
         .@"cloudflare-worker-deploy" = .{
-            .url = "https://git.lerch.org/lobo/cloudflare-worker-deploy/archive/0581221c11cf32dce48abc5b950d974e570afb0d.tar.gz",
-            .hash = "12204e7befb1691ac40c124fcb63edf3c792cae7b4b1974edc1da23a36ba6f089d02",
+            .url = "https://git.lerch.org/lobo/cloudflare-worker-deploy/archive/7ce8fd1007e3ced1e629aa341cc36ae29919e5d9.tar.gz",
+            .hash = "1220e3cdd8e007af59309b264f695ac8d138bb28721cb4b23319b442ffde8536f71f",
         },
     },
 
