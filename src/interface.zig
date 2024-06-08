@@ -61,7 +61,8 @@ pub const Response = struct {
     }
     pub fn deinit(res: *Response) void {
         res.body.deinit();
-        if (res.headers_owned) res.allocator.free(res.headers);
+        // TODO: I don't think we should really own these headers at all, ever
+        // if (res.headers_owned) res.allocator.free(res.headers);
         if (res.request.headers_owned) res.allocator.free(res.request.headers);
     }
 };

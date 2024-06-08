@@ -35,7 +35,7 @@ pub fn runStandaloneServerParent(allocator: ?std.mem.Allocator, event_handler: i
     const stdout = std.io.getStdOut();
     const stderr = std.io.getStdErr();
     while (true) {
-        var cp = std.ChildProcess.init(al.items, alloc);
+        var cp = std.process.Child.init(al.items, alloc);
         cp.stdin = stdin;
         cp.stdout = stdout;
         cp.stderr = stderr;

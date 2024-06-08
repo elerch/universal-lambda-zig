@@ -52,7 +52,7 @@ pub fn build(b: *std.Build) !void {
         .name = "universal-lambda-zig",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/universal_lambda_build.zig" },
+        .root_source_file = b.path("src/universal_lambda_build.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -108,7 +108,7 @@ pub fn build(b: *std.Build) !void {
         // but does not run it.
         const exe_tests = b.addTest(.{
             .name = "test: as executable",
-            .root_source_file = .{ .path = "src/test.zig" },
+            .root_source_file = b.path("src/test.zig"),
             .target = b.resolveTargetQuery(t),
             .optimize = optimize,
         });
@@ -128,7 +128,7 @@ pub fn build(b: *std.Build) !void {
         // via shared library
         const lib_tests = b.addTest(.{
             .name = "test: as library",
-            .root_source_file = .{ .path = "src/flexilib.zig" },
+            .root_source_file = b.path("src/flexilib.zig"),
             .target = b.resolveTargetQuery(t),
             .optimize = optimize,
         });
