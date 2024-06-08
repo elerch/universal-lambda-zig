@@ -8,13 +8,15 @@ pub fn configureBuild(b: *std.Build, cs: *std.Build.Step.Compile, universal_lamb
 
     const lib = b.addSharedLibrary(.{
         .name = cs.name,
-        .root_source_file = b.path(b.pathJoin(&[_][]const u8{
-            // root path comes from our dependency, which should be us,
-            // and if it's not, we'll just blow up here but it's not our fault ;-)
-            universal_lambda_zig_dep.builder.build_root.path.?,
-            "src",
-            "flexilib.zig",
-        })),
+        .root_source_file = .{
+            .cwd_relative = b.pathJoin(&[_][]const u8{
+                // root path comes from our dependency, which should be us,
+                // and if it's not, we'll just blow up here but it's not our fault ;-)
+                universal_lambda_zig_dep.builder.build_root.path.?,
+                "src",
+                "flexilib.zig",
+            }),
+        },
         .target = cs.root_module.resolved_target.?,
         .optimize = cs.root_module.optimize.?,
     });
